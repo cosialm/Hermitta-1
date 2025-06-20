@@ -1,6 +1,7 @@
 from enum import Enum
 from datetime import datetime, date
 from typing import Optional, Dict, Any
+from decimal import Decimal
 
 # Assuming Lease model exists in models.lease
 # Assuming User model exists in models.user
@@ -33,8 +34,8 @@ class LeaseAmendment:
                  # changes_json: Optional[Dict[str, Any]] = None,
                  # Option 2: Specific fields for common changes + a JSON field for others.
                  # This provides better structure for common cases.
-                 original_rent_amount: Optional[float] = None,
-                 new_rent_amount: Optional[float] = None,
+                 original_rent_amount: Optional[Decimal] = None,
+                 new_rent_amount: Optional[Decimal] = None,
                  original_end_date: Optional[date] = None,
                  new_end_date: Optional[date] = None,
                  original_payment_day: Optional[int] = None,
@@ -107,8 +108,8 @@ class LeaseAmendment:
 #     effective_date=date(2024, 8, 1),
 #     reason="Rent increase due to market adjustment.",
 #     status=LeaseAmendmentStatus.ACTIVE,
-#     original_rent_amount=50000.00,
-#     new_rent_amount=55000.00,
+#     original_rent_amount=Decimal("50000.00"),
+#     new_rent_amount=Decimal("55000.00"),
 #     activated_at=datetime.utcnow(),
 #     activated_by_user_id=5
 # )
