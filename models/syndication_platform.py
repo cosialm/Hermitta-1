@@ -7,17 +7,14 @@ class SyndicationPlatform:
                  name: str, # e.g., "Property24 Kenya", "Jumia House Kenya", "Generic XML Feed"
                  website_url: Optional[str] = None, # URL of the listing site
                  api_endpoint_url: Optional[str] = None, # Base URL if they have a listing API
-                 # Describes the format needed, e.g., "JSON_PROPERTY24_V1", "XML_CUSTOM_V2", "CSV_STANDARD"
-                 data_format_required: Optional[str] = None,
-                 # JSON object to map our Property model fields to their required field names/structure
-                 # e.g., {"platform_field_A": "our_property_field_X", "platform_category": "our_type_mapping_func(property_type)"}
-                 field_mapping_config: Optional[Dict[str, Any]] = None,
-                 # Authentication method if API: "OAUTH2", "API_KEY_HEADER", "NONE"
-                 authentication_method: Optional[str] = None,
-                 requires_api_key_per_landlord: bool = False, # If landlords need their own API key for this platform
-                 listing_duration_days: Optional[int] = None, # Default listing duration if applicable
-                 is_active: bool = True, # If this platform is available for syndication in our system
-                 notes_for_admin: Optional[str] = None, # Internal notes for platform management
+                 data_format_required: Optional[str] = None, # e.g., "JSON_PROPERTY24_V1", "XML_CUSTOM_V2"
+                 field_mapping_config: Optional[Dict[str, Any]] = None, # For data transformation
+                 authentication_method: Optional[str] = None, # "OAUTH2", "API_KEY_HEADER", "NONE"
+                 requires_api_key_per_landlord: bool = False,
+                 listing_duration_days: Optional[int] = None,
+                 is_active: bool = True, # If available for use in our system
+                 is_official_integration: bool = False, # New field: True if we have a formal partnership/API agreement
+                 notes_for_admin: Optional[str] = None,
                  created_at: datetime = datetime.utcnow(),
                  updated_at: datetime = datetime.utcnow()):
 
@@ -31,31 +28,24 @@ class SyndicationPlatform:
         self.requires_api_key_per_landlord = requires_api_key_per_landlord
         self.listing_duration_days = listing_duration_days
         self.is_active = is_active
-        self.notes_for_admin = notes_for_admin # e.g., "Contact: person@platform.com for API issues"
+        self.is_official_integration = is_official_integration # Indicates a formal vs. best-effort integration
+        self.notes_for_admin = notes_for_admin
 
         self.created_at = created_at
         self.updated_at = updated_at
 
 # Example Usage:
-# platform_p24 = SyndicationPlatform(
-#     platform_id=1, name="Property24 Kenya", website_url="https://www.property24.co.ke",
-#     api_endpoint_url="https://api.property24.co.ke/listings", data_format_required="JSON_P24_V2",
-#     authentication_method="API_KEY_HEADER", requires_api_key_per_landlord=True,
-#     is_active=True,
-#     field_mapping_config = {
-#         "title": "property.public_listing_description | truncate(100)",
-#         "price": "property.rent_amount_public",
-#         "bedrooms": "property.num_bedrooms",
-#         "property_type": "map_to_p24_type(property.property_type)"
-#         # map_to_p24_type would be a conceptual function for data transformation
-#     }
+# official_partner_platform = SyndicationPlatform(
+#     platform_id=1, name="KenyaHomesOfficial.co.ke",
+#     api_endpoint_url="https://api.kenyahomesofficial.co.ke/v2/listings",
+#     is_official_integration=True,
+#     is_active=True
 # )
 #
-# generic_xml_feed = SyndicationPlatform(
-#     platform_id=2, name="Generic XML Feed for Partners",
-#     data_format_required="XML_RENTAL_V1",
-#     is_active=True,
-#     notes_for_admin="Partners pull this feed from a specific URL on our side."
+# generic_feed = SyndicationPlatform(
+#     platform_id=2, name="Generic Partner XML Feed",
+#     data_format_required="XML_RENTAL_V1_EXTENDED",
+#     is_official_integration=False, # We provide the feed, they consume it
+#     is_active=True
 # )
-# print(platform_p24.name, platform_p24.requires_api_key_per_landlord)
-# print(generic_xml_feed.name, generic_xml_feed.data_format_required)
+# print(official_partner_platform.name, official_partner_platform.is_official_integration)

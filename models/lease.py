@@ -1,10 +1,10 @@
 from enum import Enum
-from datetime import datetime, date # date already imported
+from datetime import datetime, date
 from typing import Optional, List, Dict, Any
 from decimal import Decimal
 
-# Phase 5: Kenyan Market Localization & Polish (builds on Phase 3 state)
-class LeaseSigningStatus(Enum): # From Phase 3
+# Phase 3 Refined (incorporating P5 changes and adding additional_signed_document_ids)
+class LeaseSigningStatus(Enum):
     NOT_STARTED = "NOT_STARTED"
     DRAFT = "DRAFT"
     SENT_FOR_SIGNATURE = "SENT_FOR_SIGNATURE"
@@ -34,18 +34,20 @@ class Lease:
                  rent_start_date: Optional[date] = None,
                  security_deposit: Optional[Decimal] = None,
                  notes: Optional[str] = None,
-                 lease_document_url: Optional[str] = None,
+                 lease_document_url: Optional[str] = None, # URL for the primary unsigned/draft lease document
                  lease_document_version: int = 1,
                  lease_document_uploaded_at: Optional[datetime] = None,
                  lease_document_uploaded_by_user_id: Optional[int] = None,
                  generated_from_template_id: Optional[int] = None,
-                 lease_document_content_final: Optional[str] = None,
+                 lease_document_content_final: Optional[str] = None, # For in-system signing
                  signature_requests: Optional[List[Dict[str, Any]]] = None,
                  signing_status: LeaseSigningStatus = LeaseSigningStatus.NOT_STARTED,
-                 signed_lease_document_id: Optional[int] = None,
+                 signed_lease_document_id: Optional[int] = None, # FK to Document model for the main signed lease
+                 # Phase 3 Refinement: additional signed documents
+                 additional_signed_document_ids: Optional[List[int]] = None, # JSON Array of FKs to Document model (e.g., addendums)
                  # Phase 5 Refinements:
-                 renewal_notice_reminder_date: Optional[date] = None, # Calculated: end_date - notice_period (e.g. 60-90 days)
-                 termination_notice_reminder_date: Optional[date] = None, # Calculated for fixed-term end or if notice can be given
+                 renewal_notice_reminder_date: Optional[date] = None,
+                 termination_notice_reminder_date: Optional[date] = None,
                  created_at: datetime = datetime.utcnow(),
                  updated_at: datetime = datetime.utcnow()):
 
@@ -79,24 +81,20 @@ class Lease:
         self.signature_requests = signature_requests if signature_requests is not None else []
         self.signing_status = signing_status
         self.signed_lease_document_id = signed_lease_document_id
+        self.additional_signed_document_ids = additional_signed_document_ids if additional_signed_document_ids is not None else []
 
-        # Phase 5 additions
         self.renewal_notice_reminder_date = renewal_notice_reminder_date
         self.termination_notice_reminder_date = termination_notice_reminder_date
 
         self.created_at = created_at
         self.updated_at = updated_at
 
-# Example Usage (Phase 5):
-# from dateutil.relativedelta import relativedelta
-# lease_end = date(2025, 12, 31)
-# # Assuming a 90-day notice period for renewal as per Kenyan law (example)
-# renewal_reminder = lease_end - relativedelta(days=90)
-#
-# lease_p5 = Lease(
-#     lease_id=3, property_id=1, landlord_id=1, tenant_id=201,
-#     start_date=date(2024,1,1), end_date=lease_end, rent_amount=Decimal("50000"), rent_due_day=1, move_in_date=date(2024,1,1),
-#     signing_status=LeaseSigningStatus.FULLY_SIGNED_SYSTEM,
-#     renewal_notice_reminder_date=renewal_reminder
+# Example Usage (Phase 3 Refined):
+# lease_p3_refined = Lease(
+#     lease_id=4, property_id=1, landlord_id=1, tenant_id=201,
+#     start_date=date(2024,10,1), end_date=date(2025,9,30), rent_amount=Decimal("60000"), rent_due_day=1, move_in_date=date(2024,10,1),
+#     signing_status=LeaseSigningStatus.FULLY_SIGNED_UPLOADED,
+#     signed_lease_document_id=101, # ID of the main signed lease in Document model
+#     additional_signed_document_ids=[102, 103] # IDs of signed addendum 1 and addendum 2
 # )
-# print(lease_p5.end_date, lease_p5.renewal_notice_reminder_date)
+# print(lease_p3_refined.additional_signed_document_ids)

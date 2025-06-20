@@ -2,8 +2,8 @@ from enum import Enum
 from datetime import datetime
 from typing import List, Optional, Any
 
-# Phase 4: Enhanced for Vacancy Posting (builds on Phase 1 refined state)
-class PropertyType(Enum): # From Phase 1 Refinement
+# Refined for Phase 1 MVP (with unit_number based on Design Review)
+class PropertyType(Enum):
     APARTMENT_UNIT = "APARTMENT_UNIT"
     BEDSITTER = "BEDSITTER"
     SINGLE_ROOM = "SINGLE_ROOM"
@@ -14,47 +14,42 @@ class PropertyType(Enum): # From Phase 1 Refinement
     OWN_COMPOUND_HOUSE = "OWN_COMPOUND_HOUSE"
     COMMERCIAL_PROPERTY = "COMMERCIAL_PROPERTY"
 
-class PropertyStatus(Enum): # From Phase 1 Refinement, enhanced for Phase 4
+class PropertyStatus(Enum):
     VACANT = "VACANT"
     OCCUPIED = "OCCUPIED"
     UNDER_MAINTENANCE = "UNDER_MAINTENANCE"
-    LISTED = "LISTED" # Property is vacant AND publicly advertised
 
 class Property:
     def __init__(self,
                  property_id: int,
                  landlord_id: int,
-                 address_line_1: str,
+                 address_line_1: str, # Street or building name
                  city: str,
                  county: str,
                  property_type: PropertyType,
                  num_bedrooms: int,
                  num_bathrooms: int,
+                 unit_number: Optional[str] = None, # New field: e.g., "A5", "Unit 102", "Shop 3" (Indexed)
                  estate_neighborhood: Optional[str] = None,
                  ward: Optional[str] = None,
                  sub_county: Optional[str] = None,
-                 address_line_2: Optional[str] = None,
+                 address_line_2: Optional[str] = None, # Further address details if needed beyond unit_number
                  postal_code: Optional[str] = None,
                  size_sqft: Optional[int] = None,
                  amenities: Optional[List[str]] = None,
                  photos_urls: Optional[List[str]] = None,
                  main_photo_url: Optional[str] = None,
-                 description: Optional[str] = None, # Internal description
+                 description: Optional[str] = None,
                  status: PropertyStatus = PropertyStatus.VACANT,
-                 # Vacancy Posting Fields (Phase 4 Enhancements)
-                 public_listing_description: Optional[str] = None, # For public ads
-                 is_publicly_listed: bool = False,
-                 vacancy_listing_url_slug: Optional[str] = None, # Unique, editable slug for public URL
-                 public_listing_contact_override_phone: Optional[str] = None, # If different from landlord's main phone
-                 public_listing_contact_override_email: Optional[str] = None, # If different from landlord's main email
-                 accepting_applications_online: bool = False, # Default to False, true when listed and ready
                  created_at: datetime = datetime.utcnow(),
                  updated_at: datetime = datetime.utcnow()):
 
         self.property_id = property_id
         self.landlord_id = landlord_id
-        self.address_line_1 = address_line_1
-        self.address_line_2 = address_line_2
+        self.address_line_1 = address_line_1 # Main address (e.g., Building Name, Street)
+        self.unit_number = unit_number # Specific unit identifier within the address_line_1 location
+        self.address_line_2 = address_line_2 # Can be used for additional details like floor, specific block if not in unit_number
+
         self.city = city
         self.county = county
         self.sub_county = sub_county
@@ -71,33 +66,21 @@ class Property:
         self.photos_urls = photos_urls if photos_urls is not None else []
         self.main_photo_url = main_photo_url
 
-        self.description = description # Landlord's internal description
+        self.description = description
         self.status = status
-
-        # Vacancy Posting Fields
-        self.public_listing_description = public_listing_description
-        self.is_publicly_listed = is_publicly_listed
-        self.vacancy_listing_url_slug = vacancy_listing_url_slug
-        self.public_listing_contact_override_phone = public_listing_contact_override_phone
-        self.public_listing_contact_override_email = public_listing_contact_override_email
-        if self.is_publicly_listed: # If listed, should accept applications by default
-            self.accepting_applications_online = True
-            if self.status == PropertyStatus.VACANT: # Auto-update status if vacant and listed
-                self.status = PropertyStatus.LISTED
-        else:
-            self.accepting_applications_online = False
-            if self.status == PropertyStatus.LISTED: # Revert status if no longer listed
-                self.status = PropertyStatus.VACANT
 
         self.created_at = created_at
         self.updated_at = updated_at
 
-# Example Usage (Phase 4):
-# property_for_listing = Property(
-#     property_id=2, landlord_id=10, address_line_1="Beach Road", city="Mombasa", county="Mombasa",
-#     property_type=PropertyType.APARTMENT_UNIT, num_bedrooms=3, num_bathrooms=2,
-#     is_publicly_listed=True, vacancy_listing_url_slug="mombasa-beach-apt-3br",
-#     public_listing_description="Stunning 3-bedroom apartment with ocean views. Available immediately!",
-#     public_listing_contact_override_phone="+254700112233"
+# Example Usage (Refined Phase 1 with unit_number):
+# apt_A5 = Property(
+#     property_id=1, landlord_id=1, address_line_1="Sunshine Apartments, Ngong Road",
+#     unit_number="A5", city="Nairobi", county="Nairobi County",
+#     property_type=PropertyType.APARTMENT_UNIT, num_bedrooms=2, num_bathrooms=2
 # )
-# print(property_for_listing.vacancy_listing_url_slug, property_for_listing.status, property_for_listing.accepting_applications_online)
+# shop_3 = Property(
+#     property_id=2, landlord_id=1, address_line_1="Busy Mall, Moi Avenue",
+#     unit_number="Shop G3", city="Nairobi", county="Nairobi County",
+#     property_type=PropertyType.COMMERCIAL_PROPERTY, num_bedrooms=0, num_bathrooms=1
+# )
+# print(apt_A5.address_line_1, apt_A5.unit_number)
