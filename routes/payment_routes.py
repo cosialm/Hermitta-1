@@ -75,6 +75,47 @@ def list_landlord_mpesa_transactions():
     # Response: List of MpesaPaymentLog records.
     pass
 
+# --- Generic Payment Initiation (New for Multi-Gateway Support) ---
+# POST /payments/initiate-payment (User initiates a payment for an item)
+def initiate_general_payment():
+    # TODO: Implement logic for initiating a payment through various gateways.
+    # This is intended to be a more generic version of initiate_mpesa_payment_for_lease.
+    # Request: {
+    #   item_id: str, (e.g., lease_id, invoice_id for which payment is made)
+    #   item_type: str, (e.g., "LEASE_RENT", "INVOICE")
+    #   amount: Decimal, (Optional: if not predefined by the item_id)
+    #   currency: str, (e.g., "KES")
+    #   payment_gateway_choice: str (e.g., "MPESA_DIRECT", "PESAPAL", "CARD_PESAPAL")
+    #   phone_number: Optional[str] (for STK push via M-Pesa Direct or Pesapal M-Pesa)
+    #   customer_email: Optional[str] (for card payments, receipts)
+    #   customer_name: Optional[str]
+    # }
+    #
+    # Logic:
+    # 1. Validate request, retrieve item to be paid (e.g. Lease, Invoice), confirm amount.
+    # 2. Identify landlord_id associated with the item.
+    # 3. Create a main `Payment` record in `PENDING` or `EXPECTED` status.
+    # 4. Based on `payment_gateway_choice`:
+    #    a. If "MPESA_DIRECT":
+    #       - Fetch `LandlordMpesaConfiguration`.
+    #       - Create `GatewayTransaction` (type MPESA_DIRECT).
+    #       - Call M-Pesa STK Push API.
+    #       - Update `GatewayTransaction` with M-Pesa refs (MerchantRequestID, CheckoutRequestID).
+    #       - Response: { message: "STK push initiated", internal_payment_id: "...", gateway_transaction_id: "..." }
+    #    b. If "PESAPAL" (or "CARD_PESAPAL", "MPESA_VIA_PESAPAL"):
+    #       - Fetch `LandlordGatewayConfig` for Pesapal for the landlord.
+    #       - Create `GatewayTransaction` (type PESAPAL, status PENDING).
+    #       - Generate internal merchant_reference for Pesapal.
+    #       - Call Pesapal's "SubmitOrder" API (v2 or v3) with amount, currency, merchant_reference, description,
+    #         callback_url (pointing to /webhooks/payment/pesapal), notification_id (for IPN), redirect_url, customer details.
+    #       - Pesapal API returns a `redirect_url` and `pesapal_transaction_tracking_id`.
+    #       - Update `GatewayTransaction` with `gateway_transaction_ref = pesapal_transaction_tracking_id`.
+    #       - Response: { redirect_url: "pesapal_payment_page_url", internal_payment_id: "...", gateway_transaction_id: "..." }
+    #    c. Other gateways (Stripe, Flutterwave) would follow similar patterns.
+    # 5. Ensure `GatewayTransaction` is linked to the main `Payment` record.
+    # 6. The `initiate_mpesa_payment_for_lease` might be refactored to use this generic flow or be deprecated.
+    pass
+
 # Example (conceptual):
 # from flask import Blueprint, request, jsonify
 # # from ..models.payment import Payment, PaymentMethod, PaymentStatus

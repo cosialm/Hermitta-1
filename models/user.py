@@ -41,13 +41,15 @@ class User:
                  data_processing_consent_details: Optional[Dict[str, Any]] = None,
                  company_name: Optional[str] = None,
                  staff_permissions: Optional[Dict[str, Any]] = None,
+                 # Vendor-specific fields
                  vendor_services_offered: Optional[List[str]] = None,
-                 vendor_rating_average: Optional[Decimal] = None,
+                 vendor_rating_average: Optional[Decimal] = None, # Overall average rating score
+                 vendor_total_ratings_count: Optional[int] = 0,  # Total number of ratings received
                  is_verified_vendor: bool = False,
                  # MFA Fields:
-                 mfa_secret_key_encrypted: Optional[str] = None, # Encrypted secret for TOTP
+                 otp_secret: Optional[str] = None, # Encrypted secret for TOTP
                  is_mfa_enabled: bool = False, # User has MFA enabled
-                 mfa_recovery_codes_hashed: Optional[List[str]] = None, # List of one-time hashed recovery codes
+                 otp_backup_codes: Optional[List[str]] = None, # List of one-time hashed recovery codes
                  is_active: bool = True,
                  created_at: datetime = datetime.utcnow(),
                  updated_at: datetime = datetime.utcnow()):
@@ -83,34 +85,36 @@ class User:
 
         if self.role == UserRole.VENDOR:
             self.vendor_services_offered = vendor_services_offered if vendor_services_offered is not None else []
-            self.vendor_rating_average = vendor_rating_average
+            self.vendor_rating_average = vendor_rating_average # This will be calculated and updated
+            self.vendor_total_ratings_count = vendor_total_ratings_count if vendor_total_ratings_count is not None else 0
             self.is_verified_vendor = is_verified_vendor
         else:
             self.vendor_services_offered = []
             self.vendor_rating_average = None
+            self.vendor_total_ratings_count = 0
             self.is_verified_vendor = False
 
         # MFA details
-        self.mfa_secret_key_encrypted = mfa_secret_key_encrypted # Encrypt this before storing
+        self.otp_secret = otp_secret # Encrypt this before storing
         self.is_mfa_enabled = is_mfa_enabled
-        self.mfa_recovery_codes_hashed = mfa_recovery_codes_hashed if mfa_recovery_codes_hashed is not None else [] # Store hashed codes
+        self.otp_backup_codes = otp_backup_codes if otp_backup_codes is not None else [] # Store hashed codes
 
         self.is_active = is_active
         self.created_at = created_at
         self.updated_at = updated_at
 
     # Placeholder methods for handling encrypted MFA secret (actual logic elsewhere)
-    def get_mfa_secret_key(self) -> Optional[str]:
-        # TODO: Implement decryption of self.mfa_secret_key_encrypted
-        return self.mfa_secret_key_encrypted
+    def get_otp_secret(self) -> Optional[str]:
+        # TODO: Implement decryption of self.otp_secret
+        return self.otp_secret
 
-    def set_mfa_secret_key(self, plain_secret: str):
-        # TODO: Implement encryption then set self.mfa_secret_key_encrypted
-        self.mfa_secret_key_encrypted = plain_secret # Placeholder
+    def set_otp_secret(self, plain_secret: str):
+        # TODO: Implement encryption then set self.otp_secret
+        self.otp_secret = plain_secret # Placeholder
 
 # Example Usage (Phase 6 with MFA):
 # admin_user = User(user_id=5, email="admin@example.com", phone_number="+2547ADMIN000", password_hash="...",
 #                   first_name="Sys", last_name="Admin", role=UserRole.ADMIN,
-#                   is_mfa_enabled=True, mfa_secret_key_encrypted="encrypted_super_secret",
-#                   mfa_recovery_codes_hashed=["hashed_code1", "hashed_code2"])
+#                   is_mfa_enabled=True, otp_secret="encrypted_super_secret",
+#                   otp_backup_codes=["hashed_code1", "hashed_code2"])
 # print(admin_user.role, admin_user.is_mfa_enabled)
