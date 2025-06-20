@@ -9,32 +9,36 @@ def record_manual_payment():
     #   - lease_id
     #   - payment_date (date the payment was made by tenant)
     #   - amount_paid
-    #   - payment_method (from ManualPaymentMethod enum, e.g., "CASH_TO_LANDLORD", "MPESA_TO_LANDLORD_MANUAL")
-    #   - reference_number (Optional: e.g., bank slip ID, M-Pesa transaction code provided by tenant)
+    #   - payment_method (from PaymentMethod enum, e.g., "CASH_TO_LANDLORD", "MPESA_TO_LANDLORD_MANUAL", "BANK_DEPOSIT_LANDLORD")
+    #   - reference_number (Optional: e.g., M-Pesa code. For BANK_DEPOSIT_LANDLORD, this could be the system-generated payment_reference_code if known, or leave blank)
     #   - notes (Optional)
+    #   If payment_method is "BANK_DEPOSIT_LANDLORD":
+    #   - landlord_bank_account_id (FK to the LandlordBankAccount used)
+    #   - bank_transaction_id (Optional: Transaction ID from bank slip/statement)
+    #   - payer_narration (Optional: Narration provided by the payer)
     # Creates a Payment record.
-    # Response: Full details of the recorded payment.
+    # Response: Full details of the recorded payment, including bank_transaction_id, payer_narration, landlord_bank_account_id, and payment_reference_code if applicable.
     pass
 
 # GET /payments/{payment_id} (Get specific manually recorded payment details)
 def get_manual_payment_details(payment_id: int):
     # TODO: Implement logic to get details of a specific manually recorded payment.
     # Accessible by Landlord who recorded it or is associated with the lease.
-    # Response: Full payment details.
+    # Response: Full payment details, including bank_transaction_id, payer_narration, landlord_bank_account_id, and payment_reference_code if applicable.
     pass
 
 # GET /leases/{lease_id}/payments (List payments recorded for a specific lease)
 def list_payments_for_lease(lease_id: int):
     # TODO: Implement logic to list payments recorded for a specific lease.
     # Accessible by Landlord of the property or Tenant linked to the lease (if tenant has access).
-    # Response: List of payment details.
+    # Response: List of payment details, each including bank_transaction_id, payer_narration, landlord_bank_account_id, and payment_reference_code if applicable.
     pass
 
 # GET /properties/{property_id}/payments (List all payments recorded for a property)
 def list_payments_for_property(property_id: int):
     # TODO: Implement logic to list all payments recorded for various leases under a specific property.
     # Landlord only.
-    # Response: List of payment details, possibly grouped by lease.
+    # Response: List of payment details, each including bank_transaction_id, payer_narration, landlord_bank_account_id, and payment_reference_code if applicable.
     pass
 
 # Example (conceptual):
