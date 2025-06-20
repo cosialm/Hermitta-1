@@ -12,18 +12,24 @@ from datetime import date, timedelta
 
 class TestLeaseRenewalScheduler(unittest.TestCase):
 
-    @patch('rental_management_mvp.jobs.lease_renewal_scheduler.get_active_reminder_rules')
-    @patch('rental_management_mvp.jobs.lease_renewal_scheduler.get_leases_ending_on') # Conceptual service
-    @patch('rental_management_mvp.jobs.lease_renewal_scheduler.has_reminder_been_sent')
-    @patch('rental_management_mvp.jobs.lease_renewal_scheduler.send_notification')
-    @patch('rental_management_mvp.jobs.lease_renewal_scheduler.log_sent_reminder')
-    @patch('rental_management_mvp.jobs.lease_renewal_scheduler.get_user_by_id') # To get tenant details
-    def test_process_lease_renewal_reminders(self, mock_get_user, mock_log_sent_reminder,
-                                             mock_send_notification, mock_has_reminder_sent,
-                                             mock_get_leases_ending_on, mock_get_rules):
+    @patch('rental_management_mvp.jobs.lease_renewal_scheduler.UserService', create=True, new_callable=MagicMock)
+    @patch('rental_management_mvp.jobs.lease_renewal_scheduler.ReminderRuleService', create=True, new_callable=MagicMock)
+    @patch('rental_management_mvp.jobs.lease_renewal_scheduler.LeaseService', create=True, new_callable=MagicMock)
+    @patch('rental_management_mvp.jobs.lease_renewal_scheduler.NotificationService', create=True, new_callable=MagicMock)
+    @patch('rental_management_mvp.jobs.lease_renewal_scheduler.ReminderLogService', create=True, new_callable=MagicMock) # Assuming a service for has_reminder_been_sent and log_sent_reminder
+    def test_process_lease_renewal_reminders(self, MockReminderLogService, MockNotificationService,
+                                             MockLeaseService, MockReminderRuleService, MockUserService):
         """
         Test the main logic for processing lease renewal reminders.
         """
+        # Configure mock methods on the mocked service instances
+        mock_get_user = MockUserService.get_user_by_id
+        mock_log_sent_reminder = MockReminderLogService.log_sent_reminder
+        mock_has_reminder_sent = MockReminderLogService.has_reminder_been_sent
+        mock_send_notification = MockNotificationService.send_notification # or a more specific method
+        mock_get_leases_ending_on = MockLeaseService.get_leases_ending_on_for_landlord # Example, more specific
+        mock_get_rules = MockReminderRuleService.get_active_rules_for_event_type # Example
+
         # --- Setup Mock Data ---
         today = date(2024, 1, 1) # Fixed date for predictable testing
 

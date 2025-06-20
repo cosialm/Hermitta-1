@@ -50,10 +50,10 @@ class MaintenanceRequest:
     def __init__(self,
                  request_id: int,
                  property_id: int,
+                 created_by_user_id: int, # User who created the request (Tenant, Landlord, Staff) - Moved up
+                 description: str, # Moved up
+                 category: MaintenanceRequestCategory, # Moved up
                  tenant_id: Optional[int] = None, # Optional if created by Landlord/Staff directly
-                 created_by_user_id: int, # User who created the request (Tenant, Landlord, Staff)
-                 description: str,
-                 category: MaintenanceRequestCategory,
                  priority: MaintenancePriority = MaintenancePriority.MEDIUM,
                  status: MaintenanceRequestStatus = MaintenanceRequestStatus.SUBMITTED_BY_TENANT,
                  tenant_contact_preference: Optional[str] = None,
@@ -81,10 +81,12 @@ class MaintenanceRequest:
                   # are now more relevant in MaintenanceRequestVendorAssignment for individual vendors.
                   # These top-level fields might reflect the state of the chosen/primary vendor or overall request progress.
                   vendor_accepted_at: Optional[datetime] = None, # Primary vendor accepted
+                  quote_id: Optional[int] = None, # Added back as parameter
                   quote_approved_at: Optional[datetime] = None,  # Primary quote approved
                   work_started_at: Optional[datetime] = None,    # Primary work started
                  work_completed_at: Optional[datetime] = None, # When vendor/staff marks work as done
                  tenant_confirmed_at: Optional[datetime] = None, # When tenant confirms resolution
+                 # vendor_invoice_id: Optional[int] = None, # Removed duplicate, original on L72 is used
                  invoice_submitted_at: Optional[datetime] = None,
                  closed_at: Optional[datetime] = None,
                  updated_at: datetime = datetime.utcnow()
@@ -116,8 +118,8 @@ class MaintenanceRequest:
         self.tenant_feedback_comment = tenant_feedback_comment
         self.resolved_by_user_id = resolved_by_user_id
 
-        self.quote_id = quote_id
-        self.vendor_invoice_id = vendor_invoice_id
+        self.quote_id = quote_id # Uncommented
+        self.vendor_invoice_id = vendor_invoice_id # Uncommented
 
         self.submitted_at = submitted_at
         self.acknowledged_at = acknowledged_at

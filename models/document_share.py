@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Optional, List # List for future specific permissions
+from enum import Enum # Moved import to top
 
 class DocumentSharePermission(Enum): # More granular if needed in future
     VIEW = "VIEW"
@@ -60,4 +61,4 @@ class DocumentShare:
 # print(f"Share ID {landlord_shares_lease_with_tenant.share_id} for Document {landlord_shares_lease_with_tenant.document_id}")
 
 # Need to import Enum for DocumentSharePermission
-from enum import Enum
+# from enum import Enum # Removed from here
