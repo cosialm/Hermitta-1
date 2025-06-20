@@ -1,6 +1,7 @@
 import unittest
 from datetime import datetime, date
-from models.budget import Budget # Removed BudgetItem, BudgetPeriodType as they are not used by Budget model
+from decimal import Decimal
+from models.budget import Budget, BudgetItem # Added BudgetItem, BudgetPeriodType if needed later
 
 class TestBudget(unittest.TestCase):
 
@@ -117,6 +118,66 @@ class TestBudget(unittest.TestCase):
         self.assertTrue(abs(time_diff_updated) < delta_seconds, f"updated_at timestamp {budget.updated_at} is too far from current time {now}")
 
         self.assertTrue(budget.updated_at >= budget.created_at)
+
+
+class TestBudgetItem(unittest.TestCase):
+
+    def test_budget_item_instantiation_required(self):
+        """Test BudgetItem instantiation with only required fields."""
+        budgeted_amount_val = Decimal("1500.75")
+        item = BudgetItem(
+            budget_item_id=1,
+            budget_id=10,
+            category_id=5,
+            budgeted_amount=budgeted_amount_val
+        )
+
+        self.assertEqual(item.budget_item_id, 1)
+        self.assertEqual(item.budget_id, 10)
+        self.assertEqual(item.category_id, 5)
+        self.assertEqual(item.budgeted_amount, budgeted_amount_val)
+        self.assertIsInstance(item.budgeted_amount, Decimal)
+        self.assertIsNone(item.notes)
+
+    def test_budget_item_instantiation_all_fields(self):
+        """Test BudgetItem instantiation with all fields, including notes."""
+        budgeted_amount_val = Decimal("200.00")
+        notes_val = "Monthly internet service fee"
+        item = BudgetItem(
+            budget_item_id=2,
+            budget_id=11,
+            category_id=6,
+            budgeted_amount=budgeted_amount_val,
+            notes=notes_val
+        )
+
+        self.assertEqual(item.budget_item_id, 2)
+        self.assertEqual(item.budget_id, 11)
+        self.assertEqual(item.category_id, 6)
+        self.assertEqual(item.budgeted_amount, budgeted_amount_val)
+        self.assertIsInstance(item.budgeted_amount, Decimal)
+        self.assertEqual(item.notes, notes_val)
+
+    def test_budget_item_decimal_amount(self):
+        """Test that budgeted_amount is correctly stored as Decimal."""
+        # Test with a whole number
+        amount_whole = Decimal("500")
+        item1 = BudgetItem(budget_item_id=3, budget_id=12, category_id=7, budgeted_amount=amount_whole)
+        self.assertEqual(item1.budgeted_amount, amount_whole)
+        self.assertIsInstance(item1.budgeted_amount, Decimal)
+
+        # Test with decimal places
+        amount_decimal = Decimal("123.45")
+        item2 = BudgetItem(budget_item_id=4, budget_id=13, category_id=8, budgeted_amount=amount_decimal)
+        self.assertEqual(item2.budgeted_amount, amount_decimal)
+        self.assertIsInstance(item2.budgeted_amount, Decimal)
+
+        # Test with initialization from string
+        amount_from_string = Decimal("99.99")
+        item3 = BudgetItem(budget_item_id=5, budget_id=14, category_id=9, budgeted_amount=amount_from_string)
+        self.assertEqual(item3.budgeted_amount, Decimal("99.99")) # Ensure it's the same Decimal value
+        self.assertIsInstance(item3.budgeted_amount, Decimal)
+
 
 if __name__ == '__main__':
     unittest.main()
