@@ -20,23 +20,70 @@ def get_payment_history_report():
 # GET /reports/income-statement
 def get_income_statement_report():
     # TODO: Implement logic to generate an income statement.
-    # Query Params: property_id (optional), start_date, end_date.
+    # Query Params: property_id (optional), start_date, end_date, format (JSON, CSV).
     # Accessible by Landlord only.
+    # Data Sources: Payment records (for income), FinancialTransaction records (for expenses).
+    # Logic:
+    # 1. Fetch all 'COMPLETED'/'PAID' Payments within date range (filter by property_id if provided).
+    #    - Sum by income categories (e.g., "Rent Income", "Service Charge Income"). Requires Payment.category or similar.
+    # 2. Fetch all 'PAID'/'COMPLETED' FinancialTransactions of type 'EXPENSE' within date range (filter by property_id).
+    #    - Sum by expense categories (e.g., "Maintenance", "Utilities").
+    # 3. Calculate: Total Income, Total Expenses, Net Profit/Loss = Total Income - Total Expenses.
+    # Response: JSON or CSV with categorized income, expenses, and totals.
     pass
 
-# GET /reports/expense-statement
-def get_expense_statement_report():
-    # TODO: Implement logic to generate an expense statement.
-    # Query Params: property_id (optional), start_date, end_date.
+# GET /reports/expense-tracking (Renamed from expense-statement for clarity)
+def get_expense_tracking_report():
+    # TODO: Implement logic to generate an expense tracking report.
+    # Query Params: property_id (optional), start_date, end_date, category (optional), format (JSON, CSV).
     # Accessible by Landlord only.
+    # Data Sources: FinancialTransaction records (type 'EXPENSE').
+    # Logic:
+    # 1. Fetch all 'PAID'/'COMPLETED' FinancialTransactions of type 'EXPENSE' within date range.
+    # 2. Filter by property_id if provided.
+    # 3. Filter by category if provided.
+    # 4. List transactions with details: date, description, category, amount.
+    # 5. Provide summary totals by category and overall total.
+    # Response: JSON or CSV list of expenses and summaries.
     pass
 
-# GET /reports/profit-loss-statement
-def get_profit_loss_statement():
-    # TODO: Implement logic for Profit & Loss statement.
-    # Query Params: property_id (optional), start_date, end_date.
+# GET /reports/cash-flow
+def get_cash_flow_report():
+    # TODO: Implement logic for Cash Flow Analysis report.
+    # Query Params: property_id (optional), start_date, end_date, period ('month', 'quarter'), format (JSON, CSV).
     # Accessible by Landlord only.
+    # Data Sources: Payment records (actual cash received), FinancialTransaction records (actual cash paid out for expenses).
+    # Logic:
+    # 1. Determine reporting periods (e.g., list of months in date_range).
+    # 2. For each period:
+    #    a. Cash Inflows: Sum of `Payment.amount_paid` where `Payment.status` is 'COMPLETED' and `payment_date` falls in period.
+    #       Filter by property_id if provided.
+    #    b. Cash Outflows: Sum of `FinancialTransaction.amount` where `type` is 'EXPENSE', status is 'PAID'/'COMPLETED',
+    #       and `transaction_date` (or a separate `payment_date` field if it exists for expenses) falls in period.
+    #       Filter by property_id if provided.
+    #    c. Net Cash Flow for period = Inflows - Outflows.
+    # 3. Calculate Cumulative Cash Flow (running total period over period).
+    # 4. Response: JSON or CSV with inflows, outflows, net cash flow, and cumulative cash flow for each period.
     pass
+
+# GET /reports/rent-arrears
+def get_rent_arrears_report():
+    # TODO: Implement logic for Rent Arrears report.
+    # Query Params: property_id (optional), as_of_date (defaults to today), format (JSON, CSV).
+    # Accessible by Landlord only.
+    # Data Sources: Lease records, Payment records.
+    # Logic:
+    # 1. Identify active leases (filter by property_id if provided).
+    # 2. For each active lease as of `as_of_date`:
+    #    a. Calculate total expected rent up to `as_of_date` (based on lease terms: rent_amount, payment_frequency, start_date).
+    #    b. Calculate total rent paid by the tenant for that lease where `payment_date` <= `as_of_date` and status is 'COMPLETED'.
+    #    c. Arrears = Total Expected Rent - Total Rent Paid.
+    #    d. Only include leases with Arrears > 0.
+    # 3. Details for each arrears record: Tenant name, Property details, Lease ID, Expected Rent, Paid Rent, Arrears Amount,
+    #    Last Payment Date, Days Overdue (calculated from the oldest unmet due date or lease start if no payment).
+    # Response: JSON or CSV list of tenants in arrears with details.
+    pass
+
 
 # --- Operational Reports ---
 

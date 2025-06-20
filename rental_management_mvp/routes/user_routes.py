@@ -21,7 +21,14 @@ def update_my_profile():
     #   - current_password (if changing sensitive fields like phone or email, or password itself)
     #   - new_password (optional)
     # Cannot change email (typically) or role via this endpoint.
-    # Updates relevant fields in User model and User.updated_at.
+    # 1. If new_password is provided:
+    #    a. Validate new_password complexity (min 10 chars, 1 uppercase, 1 lowercase, 1 number, 1 special char).
+    #    b. If not complex, return 400 with error messages.
+    #    c. Verify current_password before allowing password change.
+    # 2. Updates relevant fields in User model and User.updated_at.
+    # 3. Audit Log: USER_UPDATED_PROFILE (user_id, ip_address, user_agent, details_before, details_after).
+    #    If password changed, ensure `details_before` and `details_after` do NOT contain password hashes.
+    #    Perhaps add a specific note in `notes` field like "User changed password".
     pass
 
 # Example (conceptual):
@@ -54,3 +61,34 @@ def update_my_profile():
 #     # Handle password change if current_password and new_password are provided.
 #     # user.save()
 #     return jsonify({"message": "Profile updated successfully"}), 200
+
+# POST /users/me/generate-otp (Generate OTP secret and backup codes for 2FA)
+def generate_otp_secret():
+    # TODO: Implement logic to generate a new OTP secret (e.g., using pyotp).
+    # Store the encrypted secret in User.otp_secret.
+    # Generate and store hashed backup codes in User.otp_backup_codes.
+    # Return the OTP secret (for QR code generation) and backup codes to the user ONCE.
+    # Audit Log: USER_MFA_SETUP_INITIATED (user_id, ip_address, user_agent, notes="OTP secret generated")
+    pass
+
+# POST /users/me/enable-2fa (Enable 2FA for the user)
+def enable_2fa():
+    # TODO: Implement logic to enable 2FA.
+    # Request: { otp_code } (verify current OTP code to confirm setup)
+    # Sets User.is_mfa_enabled = True if OTP is valid.
+    # Audit Log: USER_MFA_SETUP_COMPLETED (user_id, ip_address, user_agent, status=SUCCESS/FAILURE)
+    # (Log USER_MFA_CHALLENGE_SUCCESS/FAILURE for the OTP check itself might also be relevant here or rely on verify_otp logging if it's reused)
+    pass
+
+# POST /users/me/disable-2fa (Disable 2FA for the user)
+def disable_2fa():
+    # TODO: Implement logic to disable 2FA.
+    # Request: { password or otp_code } (confirm user identity)
+    # Sets User.is_mfa_enabled = False.
+    # Optionally, clear User.otp_secret and User.otp_backup_codes.
+    # Audit Log: USER_UPDATED_PROFILE (user_id, ip_address, user_agent,
+    #                                 details_before={"is_mfa_enabled": True},
+    #                                 details_after={"is_mfa_enabled": False},
+    #                                 notes="User disabled MFA")
+    # Alternatively, a more specific AuditActionType like USER_MFA_DISABLED could be added to the enum.
+    pass

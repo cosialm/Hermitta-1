@@ -12,7 +12,11 @@ class PaymentMethod(Enum):
     OTHER_MANUAL = "OTHER_MANUAL"
 
     # Online methods for Phase 2
-    MPESA_ONLINE_STK = "MPESA_ONLINE_STK" # Tenant initiated via STK Push
+    MPESA_ONLINE_STK = "MPESA_ONLINE_STK" # Tenant initiated via STK Push (Direct M-Pesa)
+    # Generic online methods for multi-gateway support
+    GATEWAY_CARD = "GATEWAY_CARD" # e.g., Visa/Mastercard via Pesapal, Stripe, Flutterwave
+    GATEWAY_MOBILE_MONEY = "GATEWAY_MOBILE_MONEY" # e.g., M-Pesa/Airtel via Pesapal, Flutterwave
+    GATEWAY_OTHER = "GATEWAY_OTHER" # Other methods supported by an aggregator
 
 class PaymentStatus(Enum):
     EXPECTED = "EXPECTED"               # Rent is due, payment record created automatically or by landlord as expectation
@@ -35,7 +39,7 @@ class Payment:
                  status: PaymentStatus = PaymentStatus.EXPECTED,
                  recorded_by_landlord_id: Optional[int] = None, # FK to User (Landlord who records manual payment)
                  initiated_by_user_id: Optional[int] = None, # FK to User (Tenant who initiates online payment)
-                 online_transaction_log_id: Optional[int] = None, # FK to MpesaPaymentLog or similar
+                 gateway_transaction_id: Optional[int] = None, # FK to GatewayTransaction.transaction_id
                  reference_number: Optional[str] = None, # For manual methods or external ref
                  notes: Optional[str] = None,
                  created_at: datetime = datetime.utcnow(),
@@ -53,7 +57,7 @@ class Payment:
 
         self.recorded_by_landlord_id = recorded_by_landlord_id
         self.initiated_by_user_id = initiated_by_user_id
-        self.online_transaction_log_id = online_transaction_log_id # e.g., MpesaPaymentLog.log_id
+        self.gateway_transaction_id = gateway_transaction_id # Links to the specific transaction in GatewayTransaction table
 
         self.reference_number = reference_number
         self.notes = notes

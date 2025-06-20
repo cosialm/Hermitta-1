@@ -41,8 +41,13 @@ class Property:
                  main_photo_url: Optional[str] = None,
                  description: Optional[str] = None,
                  status: PropertyStatus = PropertyStatus.VACANT,
+                  latitude: Optional[float] = None,  # For map integration
+                  longitude: Optional[float] = None, # For map integration
                  created_at: datetime = datetime.utcnow(),
                  updated_at: datetime = datetime.utcnow()):
+
+        # Typically, latitude and longitude would be populated by a geocoding service
+        # upon creation or update of address fields.
 
         self.property_id = property_id
         self.landlord_id = landlord_id
@@ -68,6 +73,9 @@ class Property:
 
         self.description = description
         self.status = status
+
+        self.latitude = latitude
+        self.longitude = longitude
 
         self.created_at = created_at
         self.updated_at = updated_at

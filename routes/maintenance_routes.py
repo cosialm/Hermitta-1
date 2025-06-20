@@ -3,15 +3,21 @@
 
 # POST /maintenance-requests (Tenant submits a new request)
 def submit_maintenance_request():
-    # TODO: Implement logic for a tenant to submit a new maintenance request.
-    # Tenant only.
+    # TODO: Implement logic for a tenant or landlord/staff to submit a new maintenance request.
+    # Tenant/Landlord/Staff.
     # Request: { property_id, description, category (MaintenanceRequestCategory),
     #            priority (optional, MaintenancePriority), tenant_contact_preference (optional),
-    #            initial_photo_files (optional, multipart files for MaintenanceAttachment) }
-    # 1. Creates MaintenanceRequest record (status SUBMITTED, priority if provided).
-    # 2. If initial_photo_files are present, uploads them and creates MaintenanceAttachment records linked to the request.
-    #    Updates MaintenanceRequest.initial_photo_urls (or relies on attachments being listed separately).
-    # Response: Full details of the created MaintenanceRequest, including any created attachment metadata.
+    #            initial_photo_files (optional, multipart files for MaintenanceAttachment),
+    #            assigned_vendor_ids: Optional[List[int]] (New: list of vendor User IDs to assign)
+    #          }
+    # 1. Creates MaintenanceRequest record (status SUBMITTED or PENDING_VENDOR_ASSIGNMENT if vendors assigned).
+    # 2. If initial_photo_files are present, uploads them and creates MaintenanceAttachment records.
+    # 3. If assigned_vendor_ids are provided:
+    #    a. For each vendor_id, create a MaintenanceRequestVendorAssignment record
+    #       (request_id from new request, vendor_id, status=PENDING_ACCEPTANCE).
+    #    b. The MaintenanceRequest.assigned_to_user_id could be set to the first vendor_id or remain null if multiple.
+    #       The overall request status might become AWAITING_VENDOR_ACCEPTANCE.
+    # Response: Full details of the created MaintenanceRequest, including any created attachment metadata and assignment info.
     pass
 
 # GET /maintenance-requests (List maintenance requests)
@@ -28,18 +34,23 @@ def get_maintenance_request_details(request_id: int):
     # TODO: Implement logic to get full details of a specific maintenance request.
     # Accessible by Tenant who submitted, Landlord of property, or assigned Staff/Vendor.
     # Response: Full MaintenanceRequest details, including lists of associated
-    #           MaintenanceAttachment records and MaintenanceCommunication records (excluding internal notes for tenant/vendor).
+    #           MaintenanceAttachment records, MaintenanceCommunication records (excluding internal notes for tenant/vendor),
+    #           and a list of MaintenanceRequestVendorAssignment details (vendor_id, status, assigned_at, quote_id).
     pass
 
-# PUT /maintenance-requests/{request_id} (Update request - typically by Landlord/Staff/Vendor)
+# PUT /maintenance-requests/{request_id} (Update core request details - typically by Landlord/Staff/Vendor)
 def update_maintenance_request(request_id: int):
     # TODO: Implement logic for Landlord/Staff/Vendor to update a maintenance request.
+    # Note: Assigning/unassigning vendors is preferably handled via dedicated assignment endpoints.
+    #       This endpoint would handle changes to core fields like description, priority, overall status,
+    #       scheduled_date, resolution_notes, actual_cost, resolved_by_user_id.
+    #       Updating assigned_to_user_id here would be for the 'primary' or 'winning' vendor after quote approval.
     # Permissions vary by role:
-    #   - Landlord/Staff: can update status, priority, assigned_to_user_id, assigned_vendor_name_manual,
-    #                     scheduled_date, resolution_notes, actual_cost, resolved_by_user_id.
-    #   - Assigned Vendor (if system user): can update status (e.g., IN_PROGRESS, RESOLVED_BY_ASSIGNED_PARTY), resolution_notes.
-    # Request: { status, priority, assigned_to_user_id, assigned_vendor_name_manual, scheduled_date,
-    #            resolution_notes, actual_cost, resolved_by_user_id } (all optional).
+    #   - Landlord/Staff: can update status, priority, scheduled_date, resolution_notes, actual_cost, resolved_by_user_id.
+    #                     Can also update the primary assigned_to_user_id (e.g., after quote approval).
+    #   - Assigned Vendor (if system user, via their specific assignment): can update status of their assignment (see maintenance_assignment_routes).
+    # Request: { status, priority, description, scheduled_date, resolution_notes, actual_cost, resolved_by_user_id,
+    #            assigned_to_user_id (for primary vendor) } (all optional).
     # Updates relevant fields in MaintenanceRequest. Sets timestamps like acknowledged_at, resolved_at, closed_at.
     # Response: Full updated MaintenanceRequest details.
     pass
@@ -73,9 +84,11 @@ def delete_maintenance_attachment(request_id: int, attachment_id: int):
 def add_maintenance_communication(request_id: int):
     # TODO: Implement logic to add a communication entry to a maintenance request.
     # Authenticated user with access to the request (Tenant, Landlord, Staff, Vendor).
-    # Request: { message_text, is_internal_note (boolean, only for Landlord/Staff) }
+    # Request: { message_text, is_internal_note (boolean, only for Landlord/Staff),
+    #            recipient_vendor_id: Optional[int] (if message is for a specific assigned vendor) }
     # Creates MaintenanceCommunication record.
-    # If not is_internal_note, may trigger notification to other parties on the request.
+    # If not is_internal_note, may trigger notification to other parties on the request
+    # (e.g., tenant, all assigned vendors if recipient_vendor_id is null, or specific vendor).
     # Response: Details of the created MaintenanceCommunication.
     pass
 

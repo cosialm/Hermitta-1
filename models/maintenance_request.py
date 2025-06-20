@@ -58,24 +58,31 @@ class MaintenanceRequest:
                  status: MaintenanceRequestStatus = MaintenanceRequestStatus.SUBMITTED_BY_TENANT,
                  tenant_contact_preference: Optional[str] = None,
                  initial_photo_urls: Optional[List[str]] = None,
-                 # Clarified assigned_to_user_id is for a User with VENDOR or STAFF role
+                  # DEPRECATED / For Simple Cases: Direct assignment to a single vendor/staff.
+                  # For multiple vendor assignments, use the MaintenanceRequestVendorAssignment model.
                  assigned_to_user_id: Optional[int] = None, # FK to User (Staff or Vendor)
-                 assigned_vendor_name_manual: Optional[str] = None, # If vendor not a system user
-                 scheduled_date: Optional[date] = None,
+                  assigned_vendor_name_manual: Optional[str] = None, # If vendor not a system user (legacy or simple cases)
+                  # Timestamps related to single assignment (can be deprecated or used for primary/lead vendor)
+                  vendor_assigned_at: Optional[datetime] = None, # Date primary vendor was assigned
+                  # General fields, less tied to a single vendor assignment if multiple are used:
+                  scheduled_date: Optional[date] = None, # Overall scheduled date if applicable
                  resolution_notes: Optional[str] = None,
-                 actual_cost: Optional[Decimal] = None,
+                  actual_cost: Optional[Decimal] = None, # Might be sum of costs if multiple vendors work, or specific if one chosen
                  tenant_feedback_rating: Optional[int] = None,
                  tenant_feedback_comment: Optional[str] = None,
-                 resolved_by_user_id: Optional[int] = None, # User who performed the resolution (Staff/Vendor)
+                  resolved_by_user_id: Optional[int] = None, # User who performed the final resolution
                  # Phase 6 Enhancements:
-                 quote_id: Optional[int] = None, # FK to Quote model
-                 vendor_invoice_id: Optional[int] = None, # FK to VendorInvoice model
+                  # quote_id: Optional[int] = None, # FK to Quote model - This might be the *approved* quote_id.
+                                                 # Individual vendor quotes are linked via MaintenanceRequestVendorAssignment.
+                  vendor_invoice_id: Optional[int] = None, # FK to VendorInvoice model - similarly, the primary/approved invoice.
                  submitted_at: datetime = datetime.utcnow(),
                  acknowledged_at: Optional[datetime] = None,
-                 vendor_assigned_at: Optional[datetime] = None,
-                 vendor_accepted_at: Optional[datetime] = None,
-                 quote_approved_at: Optional[datetime] = None,
-                 work_started_at: Optional[datetime] = None,
+                  # vendor_assigned_at, vendor_accepted_at, quote_approved_at, work_started_at
+                  # are now more relevant in MaintenanceRequestVendorAssignment for individual vendors.
+                  # These top-level fields might reflect the state of the chosen/primary vendor or overall request progress.
+                  vendor_accepted_at: Optional[datetime] = None, # Primary vendor accepted
+                  quote_approved_at: Optional[datetime] = None,  # Primary quote approved
+                  work_started_at: Optional[datetime] = None,    # Primary work started
                  work_completed_at: Optional[datetime] = None, # When vendor/staff marks work as done
                  tenant_confirmed_at: Optional[datetime] = None, # When tenant confirms resolution
                  invoice_submitted_at: Optional[datetime] = None,
@@ -94,11 +101,17 @@ class MaintenanceRequest:
         self.tenant_contact_preference = tenant_contact_preference
         self.initial_photo_urls = initial_photo_urls if initial_photo_urls is not None else []
 
+        # Note: assigned_to_user_id, assigned_vendor_name_manual, and vendor_assigned_at
+        # are kept for now, but their primary role shifts. For multi-vendor scenarios,
+        # data is primarily managed via MaintenanceRequestVendorAssignment.
+        # These fields might represent a 'lead' vendor or a simplified direct assignment.
         self.assigned_to_user_id = assigned_to_user_id
         self.assigned_vendor_name_manual = assigned_vendor_name_manual
+        self.vendor_assigned_at = vendor_assigned_at # Date primary vendor was assigned
+
         self.scheduled_date = scheduled_date
         self.resolution_notes = resolution_notes
-        self.actual_cost = actual_cost
+        self.actual_cost = actual_cost # This might be the total cost from the approved vendor(s)
         self.tenant_feedback_rating = tenant_feedback_rating
         self.tenant_feedback_comment = tenant_feedback_comment
         self.resolved_by_user_id = resolved_by_user_id
