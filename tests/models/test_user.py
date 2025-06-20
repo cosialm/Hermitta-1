@@ -2,14 +2,45 @@
 # Assuming a testing framework like unittest or pytest
 
 import unittest
-# from models.user import User, UserRole # Assuming User model can be imported
+from models.user import User, UserRole, PreferredLoginMethod, PreferredLanguage
+from datetime import datetime, date
 
-class TestUserModel2FA(unittest.TestCase):
+class TestUserModel(unittest.TestCase): # Renamed class for broader scope
+
+    def _create_user(self, **kwargs) -> User:
+        """Helper method to create a User instance with default valid values."""
+        default_user_data = {
+            "user_id": 1,
+            "email": "default@example.com",
+            "phone_number": "+254712345678",
+            "password_hash": "hashed_password_default",
+            "first_name": "Default",
+            "last_name": "User",
+            "role": UserRole.TENANT, # Default role, can be overridden by kwargs
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow(),
+        }
+        # Override defaults with any provided kwargs
+        user_data = {**default_user_data, **kwargs}
+        return User(**user_data)
 
     def setUp(self):
         """Setup basic user instances for testing."""
-        # self.vendor_user = User(user_id=1, email="vendor@example.com", ..., role=UserRole.VENDOR)
-        # self.landlord_user = User(user_id=2, email="landlord@example.com", ..., role=UserRole.LANDLORD)
+        self.landlord_user = self._create_user(
+            user_id=2,
+            email="landlord@example.com",
+            first_name="Larry",
+            last_name="Landlord",
+            role=UserRole.LANDLORD,
+            kra_pin="A123456789Z"
+        )
+        self.tenant_user = self._create_user(
+            user_id=3,
+            email="tenant@example.com",
+            first_name="Terry",
+            last_name="Tenant",
+            role=UserRole.TENANT
+        )
         # Note: Actual User object creation would depend on its __init__ signature
         # and whether direct instantiation or a factory/builder is used in tests.
         pass
@@ -36,7 +67,17 @@ class TestUserModel2FA(unittest.TestCase):
         #
         # self.assertTrue(user.is_mfa_enabled)
         # self.assertEqual(user.otp_secret, "encrypted_TEST_OTP_SECRET") # Or however it's stored/retrieved
-        pass
+
+        user = self._create_user(user_id=10, email="mfa_enable@example.com", role=UserRole.TENANT)
+        self.assertFalse(user.is_mfa_enabled)
+        self.assertIsNone(user.otp_secret)
+
+        new_otp_secret = "TEST_OTP_SECRET"
+        user.set_otp_secret(new_otp_secret)
+        user.is_mfa_enabled = True
+
+        self.assertTrue(user.is_mfa_enabled)
+        self.assertEqual(user.otp_secret, "TEST_OTP_SECRET")
 
     def test_user_disable_mfa(self):
         """
@@ -59,7 +100,24 @@ class TestUserModel2FA(unittest.TestCase):
         # self.assertFalse(user.is_mfa_enabled)
         # self.assertIsNone(user.otp_secret)
         # self.assertEqual(user.otp_backup_codes, [])
-        pass
+
+        user = self._create_user(
+            user_id=11, email="mfa_disable@example.com", role=UserRole.LANDLORD,
+            is_mfa_enabled=True,
+            otp_secret="EXISTING_SECRET",
+            otp_backup_codes=["code1", "code2"]
+        )
+        self.assertTrue(user.is_mfa_enabled)
+        self.assertEqual(user.otp_secret, "EXISTING_SECRET")
+        self.assertEqual(user.otp_backup_codes, ["code1", "code2"])
+
+        user.is_mfa_enabled = False
+        user.otp_secret = None
+        user.otp_backup_codes = []
+
+        self.assertFalse(user.is_mfa_enabled)
+        self.assertIsNone(user.otp_secret)
+        self.assertEqual(user.otp_backup_codes, [])
 
     def test_set_otp_secret(self):
         """
@@ -82,7 +140,18 @@ class TestUserModel2FA(unittest.TestCase):
         # # with patch('some.encryption.utility.decrypt', return_value=plain_secret):
         # #     retrieved_secret = user.get_otp_secret()
         # # self.assertEqual(retrieved_secret, plain_secret)
-        pass
+
+        user = self._create_user(user_id=12, email="otp_secret_test@example.com")
+        plain_secret = "MYSECRETKEY"
+
+        # Test set_otp_secret
+        user.set_otp_secret(plain_secret)
+        self.assertEqual(user.otp_secret, plain_secret) # As it's a placeholder, it stores plain text
+
+        # Test get_otp_secret
+        # Since get_otp_secret is also a placeholder and returns self.otp_secret directly
+        retrieved_secret = user.get_otp_secret()
+        self.assertEqual(retrieved_secret, plain_secret)
 
     def test_add_and_clear_otp_backup_codes(self):
         """
@@ -107,7 +176,105 @@ class TestUserModel2FA(unittest.TestCase):
         # # user.clear_backup_codes() # Or direct
         # user.otp_backup_codes = []
         # self.assertEqual(user.otp_backup_codes, [])
-        pass
+
+        user = self._create_user(user_id=13, email="backup_codes_test@example.com")
+        self.assertEqual(user.otp_backup_codes, []) # Should be empty by default from __init__
+
+        hashed_backup_codes = ["hashed_12345", "hashed_67890"]
+        user.otp_backup_codes = hashed_backup_codes
+        self.assertEqual(user.otp_backup_codes, hashed_backup_codes)
+
+        user.otp_backup_codes = []
+        self.assertEqual(user.otp_backup_codes, [])
+
+    def test_user_creation_defaults_and_roles(self):
+        """Test user creation with defaults and role-specific attributes."""
+        # Test LANDLORD user
+        landlord = self._create_user(
+            user_id=20,
+            email="landlord_roles@example.com",
+            role=UserRole.LANDLORD,
+            kra_pin="P000123456X"
+        )
+        self.assertEqual(landlord.role, UserRole.LANDLORD)
+        self.assertEqual(landlord.kra_pin, "P000123456X")
+        self.assertEqual(landlord.staff_permissions, {}) # Default for non-staff
+        self.assertEqual(landlord.vendor_services_offered, []) # Default for non-vendor
+        self.assertTrue(landlord.is_active)
+        self.assertEqual(landlord.preferred_login_method, PreferredLoginMethod.EMAIL)
+        self.assertEqual(landlord.preferred_language, PreferredLanguage.EN_KE)
+
+        # Test TENANT user
+        tenant = self._create_user(
+            user_id=21,
+            email="tenant_roles@example.com",
+            role=UserRole.TENANT,
+            kra_pin="P000IGNORETHIS" # KRA PIN should be ignored for TENANT
+        )
+        self.assertEqual(tenant.role, UserRole.TENANT)
+        self.assertIsNone(tenant.kra_pin) # KRA PIN is None for non-landlords
+
+        # Test STAFF user
+        staff_perms = {"can_view_reports": True, "can_edit_users": False}
+        staff_user = self._create_user(
+            user_id=22,
+            email="staff_roles@example.com",
+            role=UserRole.STAFF,
+            staff_permissions=staff_perms.copy()
+        )
+        self.assertEqual(staff_user.role, UserRole.STAFF)
+        self.assertEqual(staff_user.staff_permissions, staff_perms)
+
+        # Test VENDOR user
+        vendor_services = ["PLUMBING", "ELECTRICAL"]
+        vendor = self._create_user(
+            user_id=23,
+            email="vendor_roles@example.com",
+            role=UserRole.VENDOR,
+            vendor_services_offered=vendor_services.copy(),
+            vendor_rating_average=None, # Explicitly None for new vendor
+            vendor_total_ratings_count=0,
+            is_verified_vendor=False
+        )
+        self.assertEqual(vendor.role, UserRole.VENDOR)
+        self.assertEqual(vendor.vendor_services_offered, vendor_services)
+        self.assertIsNone(vendor.vendor_rating_average)
+        self.assertEqual(vendor.vendor_total_ratings_count, 0)
+        self.assertFalse(vendor.is_verified_vendor)
+        # Test that KRA PIN is None for VENDOR
+        self.assertIsNone(vendor.kra_pin)
+        # Test that staff_permissions is {} for VENDOR
+        self.assertEqual(vendor.staff_permissions, {})
+
+    def test_user_phone_verification_fields(self):
+        """Test phone verification related fields."""
+        user = self._create_user(user_id=24, email="phone_verify@example.com")
+
+        self.assertFalse(user.is_phone_verified) # Default
+        self.assertIsNone(user.phone_verification_otp) # Default
+        self.assertIsNone(user.phone_verification_otp_expires_at) # Default
+
+        # Simulate setting OTP
+        test_otp = "123456"
+        expiry_time = datetime.utcnow()
+
+        user.is_phone_verified = False # Explicitly before verification
+        user.phone_verification_otp = test_otp
+        user.phone_verification_otp_expires_at = expiry_time
+
+        self.assertFalse(user.is_phone_verified) # Still false until verified
+        self.assertEqual(user.phone_verification_otp, test_otp)
+        self.assertEqual(user.phone_verification_otp_expires_at, expiry_time)
+
+        # Simulate successful verification
+        user.is_phone_verified = True
+        user.phone_verification_otp = None # OTP should be cleared after verification
+        user.phone_verification_otp_expires_at = None # Expiry should be cleared
+
+        self.assertTrue(user.is_phone_verified)
+        self.assertIsNone(user.phone_verification_otp)
+        self.assertIsNone(user.phone_verification_otp_expires_at)
+
 
 if __name__ == '__main__':
     unittest.main()

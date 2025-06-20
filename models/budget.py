@@ -1,6 +1,7 @@
 from datetime import datetime, date
 from typing import Optional
 from decimal import Decimal
+from enum import Enum # Added import here
 
 class BudgetPeriodType(Enum): # Could be used if budgets are strictly monthly, quarterly etc.
     MONTHLY = "MONTHLY"
@@ -80,4 +81,4 @@ class BudgetItem:
 # print(f"Budget Item '{repairs_expense_budget.category_id}' amount: {repairs_expense_budget.budgeted_amount}")
 
 # Need to import Enum for BudgetPeriodType, though it's not used directly in constructor here
-from enum import Enum
+# from enum import Enum # Removed from here
