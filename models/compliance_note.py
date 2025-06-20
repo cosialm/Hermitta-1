@@ -46,9 +46,9 @@ class ComplianceNote:
                  note_id: int,
                  area_of_system: ComplianceArea,
                  kenyan_regulation_reference: str, # e.g., "Data Protection Act, 2019"
+                 system_implication_notes: str, # Moved here, as it's required
                  specific_section_clause: Optional[str] = None, # e.g., "Section 26", "Clause 5.1.b"
                  system_components_affected: Optional[List[str]] = None, # e.g., ["UserAPI", "LeaseAdminUI", "NotificationService"]
-                 system_implication_notes: str,
                  action_taken_summary: Optional[str] = None,
                  status: ComplianceStatus = ComplianceStatus.IDENTIFIED,
                  assigned_to_user_id: Optional[int] = None, # FK to User (internal team member)

@@ -28,11 +28,11 @@ class GatewayTransaction:
                  transaction_id: int, # PK
                  payment_id: int, # FK to our internal Payment model
                  gateway_type: GatewayTypeEnum,
+                 amount: Decimal, # Amount processed by the gateway - moved up
+                 currency: str, # Currency code (e.g., "KES") - moved up
                  gateway_transaction_ref: Optional[str] = None, # Unique ID from the gateway (e.g., Pesapal tracking ID)
                  gateway_merchant_ref: Optional[str] = None, # Our internal unique reference sent to the gateway
                  status: GatewayTransactionStatus = GatewayTransactionStatus.PENDING,
-                 amount: Decimal, # Amount processed by the gateway
-                 currency: str, # Currency code (e.g., "KES")
                  payment_method_used: Optional[str] = None, # e.g., "CARD", "MPESA", "AIRTELMONEY" (provided by gateway)
                  raw_request_payload: Optional[Dict[str, Any]] = None, # What we sent to the gateway (excluding sensitive details)
                  raw_response_payload: Optional[Dict[str, Any]] = None, # Initial response from gateway after submission

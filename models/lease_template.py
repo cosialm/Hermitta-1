@@ -4,12 +4,12 @@ from typing import Optional, List, Dict, Any # For JSON content
 class LeaseTemplate:
     def __init__(self,
                  template_id: int,
+                 name: str,        # e.g., "Standard 12-Month Residential Lease" - Moved up (required)
+                 template_content_body: str, # Moved up (required)
                  landlord_id: Optional[int] = None, # FK to User (Landlord). Null if system template.
-                 name: str,        # e.g., "Standard 12-Month Residential Lease"
                  description: Optional[str] = None, # Brief description of the template
                  # Main template body with placeholders like {{tenant_name}}, {{rent_amount}}, {{start_date}} etc.
                  # This could be Markdown, HTML, or plain text.
-                 template_content_body: str,
                  # For Phase 3 refinement: customizable clauses
                  # Example: [{"clause_id": "pet_policy", "title": "Pet Policy",
                  #            "text_template": "Pets are {{pets_allowed_value}}. If allowed, a pet deposit of KES {{pet_deposit_amount}} is required.",

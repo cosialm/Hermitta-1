@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Optional, List, Dict, Any # For JSON field
+from decimal import Decimal # Moved import to top
 
 class LandlordApplicationConfig:
     def __init__(self,
@@ -50,4 +51,4 @@ class LandlordApplicationConfig:
 # print(landlord_app_config.landlord_id, landlord_app_config.custom_field_definitions[0]['label'])
 
 # Need to import Decimal for the application_fee
-from decimal import Decimal
+# from decimal import Decimal # Removed from here
