@@ -511,4 +511,3 @@ class TestAuthRoutes(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-[end of tests/routes/test_auth_routes.py]
