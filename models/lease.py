@@ -3,8 +3,7 @@ from datetime import datetime, date
 from typing import Optional, List, Dict, Any
 from decimal import Decimal
 
-# Phase 3 Refined (incorporating P5 changes and adding additional_signed_document_ids)
-class LeaseSigningStatus(Enum):
+class LeaseSigningStatus(Enum): # From Phase 3
     NOT_STARTED = "NOT_STARTED"
     DRAFT = "DRAFT"
     SENT_FOR_SIGNATURE = "SENT_FOR_SIGNATURE"
@@ -16,6 +15,19 @@ class LeaseSigningStatus(Enum):
     CANCELLED = "CANCELLED"
     SUPERSEDED = "SUPERSEDED"
 
+# New Enum for overall Lease Status
+class LeaseStatusType(Enum):
+    DRAFT = "DRAFT"                             # Lease is being prepared, not yet active for signing or occupancy
+    PENDING_SIGNATURES = "PENDING_SIGNATURES"   # Sent for signature, or signatures being collected
+    ACTIVE_PENDING_MOVE_IN = "ACTIVE_PENDING_MOVE_IN" # Signed, tenant has not yet moved in (start_date might be future)
+    ACTIVE = "ACTIVE"                           # Lease is current, tenant has moved in or start_date has passed
+    EXPIRED_PENDING_RENEWAL = "EXPIRED_PENDING_RENEWAL" # End date passed, awaiting renewal decision/action
+    EXPIRED = "EXPIRED"                         # End date passed, tenant moved out or no renewal
+    TERMINATED_EARLY = "TERMINATED_EARLY"       # Lease ended before original end_date by agreement or other cause
+    CANCELLED = "CANCELLED"                     # Lease was cancelled before it became active (e.g., during draft/pending signature)
+    RENEWED = "RENEWED"                         # This specific lease instance has been superseded by a new renewal lease record
+    # Note: `signing_status` tracks the e-signature process; `status` tracks overall lifecycle.
+
 class Lease:
     def __init__(self,
                  lease_id: int,
@@ -26,6 +38,7 @@ class Lease:
                  rent_amount: Decimal,
                  rent_due_day: int,
                  move_in_date: date,
+                 status: LeaseStatusType = LeaseStatusType.DRAFT, # New overall status field
                  tenant_id: Optional[int] = None,
                  tenant_national_id: Optional[str] = None,
                  tenant_name_manual: Optional[str] = None,
@@ -34,18 +47,16 @@ class Lease:
                  rent_start_date: Optional[date] = None,
                  security_deposit: Optional[Decimal] = None,
                  notes: Optional[str] = None,
-                 lease_document_url: Optional[str] = None, # URL for the primary unsigned/draft lease document
+                 lease_document_url: Optional[str] = None,
                  lease_document_version: int = 1,
                  lease_document_uploaded_at: Optional[datetime] = None,
                  lease_document_uploaded_by_user_id: Optional[int] = None,
                  generated_from_template_id: Optional[int] = None,
-                 lease_document_content_final: Optional[str] = None, # For in-system signing
+                 lease_document_content_final: Optional[str] = None,
                  signature_requests: Optional[List[Dict[str, Any]]] = None,
                  signing_status: LeaseSigningStatus = LeaseSigningStatus.NOT_STARTED,
-                 signed_lease_document_id: Optional[int] = None, # FK to Document model for the main signed lease
-                 # Phase 3 Refinement: additional signed documents
-                 additional_signed_document_ids: Optional[List[int]] = None, # JSON Array of FKs to Document model (e.g., addendums)
-                 # Phase 5 Refinements:
+                 signed_lease_document_id: Optional[int] = None,
+                 additional_signed_document_ids: Optional[List[int]] = None,
                  renewal_notice_reminder_date: Optional[date] = None,
                  termination_notice_reminder_date: Optional[date] = None,
                  created_at: datetime = datetime.utcnow(),
@@ -69,6 +80,7 @@ class Lease:
         self.rent_amount = rent_amount
         self.rent_due_day = rent_due_day
         self.security_deposit = security_deposit
+        self.status = status # Overall lease status
         self.notes = notes
 
         self.lease_document_url = lease_document_url
@@ -79,7 +91,7 @@ class Lease:
         self.generated_from_template_id = generated_from_template_id
         self.lease_document_content_final = lease_document_content_final
         self.signature_requests = signature_requests if signature_requests is not None else []
-        self.signing_status = signing_status
+        self.signing_status = signing_status # Tracks the e-signature part specifically
         self.signed_lease_document_id = signed_lease_document_id
         self.additional_signed_document_ids = additional_signed_document_ids if additional_signed_document_ids is not None else []
 
@@ -89,12 +101,5 @@ class Lease:
         self.created_at = created_at
         self.updated_at = updated_at
 
-# Example Usage (Phase 3 Refined):
-# lease_p3_refined = Lease(
-#     lease_id=4, property_id=1, landlord_id=1, tenant_id=201,
-#     start_date=date(2024,10,1), end_date=date(2025,9,30), rent_amount=Decimal("60000"), rent_due_day=1, move_in_date=date(2024,10,1),
-#     signing_status=LeaseSigningStatus.FULLY_SIGNED_UPLOADED,
-#     signed_lease_document_id=101, # ID of the main signed lease in Document model
-#     additional_signed_document_ids=[102, 103] # IDs of signed addendum 1 and addendum 2
-# )
-# print(lease_p3_refined.additional_signed_document_ids)
+# Example:
+# lease_active = Lease(..., status=LeaseStatusType.ACTIVE, signing_status=LeaseSigningStatus.FULLY_SIGNED_SYSTEM)
