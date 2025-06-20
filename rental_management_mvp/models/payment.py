@@ -42,6 +42,10 @@ class Payment:
                  gateway_transaction_id: Optional[int] = None, # FK to GatewayTransaction.transaction_id
                  reference_number: Optional[str] = None, # For manual methods or external ref
                  notes: Optional[str] = None,
+                 landlord_bank_account_id: Optional[int] = None, # FK to LandlordBankAccount
+                 bank_transaction_id: Optional[str] = None, # Bank's reference for the transaction
+                 payer_narration: Optional[str] = None, # Tenant's narration for the transfer
+                 payment_reference_code: Optional[str] = None, # System-generated unique code for tenant
                  created_at: datetime = datetime.utcnow(),
                  updated_at: datetime = datetime.utcnow()):
 
@@ -61,6 +65,11 @@ class Payment:
 
         self.reference_number = reference_number
         self.notes = notes
+
+        self.landlord_bank_account_id = landlord_bank_account_id
+        self.bank_transaction_id = bank_transaction_id
+        self.payer_narration = payer_narration
+        self.payment_reference_code = payment_reference_code
 
         self.created_at = created_at
         self.updated_at = updated_at

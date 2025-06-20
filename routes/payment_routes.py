@@ -6,11 +6,17 @@
 def record_manual_payment():
     # TODO: Implement logic for a landlord to manually record a payment.
     # Landlord only (recorded_by_landlord_id from authenticated user).
-    # Request: { lease_id, payment_date, amount_paid,
-    #            payment_method (e.g. "CASH_TO_LANDLORD", "MPESA_TO_LANDLORD_MANUAL"),
-    #            reference_number (optional), notes (optional) }
+    # Request: {
+    #            lease_id, payment_date, amount_paid,
+    #            payment_method (e.g. "CASH_TO_LANDLORD", "MPESA_TO_LANDLORD_MANUAL", "BANK_DEPOSIT_LANDLORD"),
+    #            reference_number (optional), notes (optional),
+    #            // Fields specific to BANK_DEPOSIT_LANDLORD
+    #            landlord_bank_account_id (optional, FK to LandlordBankAccount),
+    #            bank_transaction_id (optional, from bank slip/statement),
+    #            payer_narration (optional, from payer's bank transfer details)
+    #          }
     # Creates/Updates a Payment record with status COMPLETED.
-    # Response: Full details of the recorded payment.
+    # Response: Full details of the recorded payment, including bank_transaction_id, payer_narration, landlord_bank_account_id, and payment_reference_code if applicable.
     pass
 
 # --- M-Pesa Online Payment Integration (New for Phase 2) ---
@@ -57,14 +63,14 @@ def list_payments():
     # For Tenant: Payments they made or are expected for their leases.
     # Query Params: lease_id, property_id, status (e.g., "COMPLETED", "PENDING_CONFIRMATION", "EXPECTED"),
     #               payment_method, date_range (for due_date or payment_date).
-    # Response: List of Payment records.
+    # Response: List of Payment records, each including bank_transaction_id, payer_narration, landlord_bank_account_id, and payment_reference_code if applicable.
     pass
 
 # GET /payments/{payment_id} (Get specific payment details)
 def get_payment_details(payment_id: int):
     # TODO: Implement logic to get details of a specific payment.
     # Accessible by Landlord or Tenant involved in the payment.
-    # Response: Full Payment details, may include linked MpesaPaymentLog info if applicable (e.g., mpesa_receipt_number).
+    # Response: Full Payment details, including bank_transaction_id, payer_narration, landlord_bank_account_id, payment_reference_code if applicable, and may include linked MpesaPaymentLog info.
     pass
 
 # GET /mpesa-transactions (Landlord views their M-Pesa transaction logs)
@@ -73,6 +79,33 @@ def list_landlord_mpesa_transactions():
     # Landlord only (landlord_id from MpesaPaymentLog via Lease -> Property -> Landlord, or direct if added).
     # Query Params: lease_id, status (MpesaLogStatus), date_range, mpesa_receipt_number.
     # Response: List of MpesaPaymentLog records.
+    pass
+
+# Placeholder (New function)
+# GET /tenant/payments/{payment_id}/obligation (Tenant views how to pay a specific bill)
+def get_tenant_payment_obligation_details(payment_id: int):
+    # TODO: Implement logic for a tenant to view payment instructions.
+    # Tenant only, for their own payment obligations.
+    # 1. Fetch the Payment record using payment_id. Ensure it belongs to the authenticated tenant.
+    # 2. If payment_method is not yet set, or if it's something like BANK_DEPOSIT_LANDLORD:
+    #    a. Fetch associated Landlord's bank accounts (e.g., LandlordBankAccount.query.filter_by(landlord_id=payment.lease.property.landlord_id, is_primary=True).first()).
+    #    b. If a landlord bank account is found:
+    #       - payment_details_to_display = {
+    #           "payment_id": payment.id,
+    #           "expected_amount": payment.expected_amount,
+    #           "due_date": payment.due_date,
+    #           "payment_reference_code": payment.payment_reference_code, # Crucial for reconciliation
+    #           "bank_account_details": {
+    #               "bank_name": landlord_bank_account.bank_name,
+    #               "account_holder_name": landlord_bank_account.account_holder_name,
+    #               "account_number": landlord_bank_account.account_number,
+    #               "branch_name": landlord_bank_account.branch_name
+    #           },
+    #           "instructions": f"Please use the reference code '{payment.payment_reference_code}' in your bank transfer narration."
+    #       }
+    #    c. If no bank account is configured by landlord, provide a generic message.
+    # 3. Return these details to the tenant.
+    # Response: { payment_obligation_details }
     pass
 
 # --- Generic Payment Initiation (New for Multi-Gateway Support) ---
@@ -112,6 +145,13 @@ def initiate_general_payment():
     #       - Update `GatewayTransaction` with `gateway_transaction_ref = pesapal_transaction_tracking_id`.
     #       - Response: { redirect_url: "pesapal_payment_page_url", internal_payment_id: "...", gateway_transaction_id: "..." }
     #    c. Other gateways (Stripe, Flutterwave) would follow similar patterns.
+    #    d. If payment_gateway_choice is "BANK_TRANSFER" (or similar enum):
+    #       - Generate and store `payment_reference_code` on the `Payment` record.
+    #       - Fetch landlord's primary `LandlordBankAccount`.
+    #       - Response: { message: "Bank transfer details provided",
+    #                     internal_payment_id: "...",
+    #                     payment_reference_code: "...",
+    #                     bank_details: { ... } }
     # 5. Ensure `GatewayTransaction` is linked to the main `Payment` record.
     # 6. The `initiate_mpesa_payment_for_lease` might be refactored to use this generic flow or be deprecated.
     pass
