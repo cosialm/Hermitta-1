@@ -33,9 +33,14 @@ from .audit_log import AuditLog
 from .user_financial_category import UserFinancialCategory
 from .mpesa_payment_log import MpesaPaymentLog # Assuming this is an SQLAlchemy model
 # New models and enums related to Payment integration:
-from .enums import PaymentMethod, PaymentStatus, GeneralStatus, MaintenanceRequestStatus # Add other enums if they are intended for general use
+from .enums import (
+    PaymentMethod, PaymentStatus,
+    MessageType, MessageStatus, # Added for Message model
+    GeneralStatus, MaintenanceRequestStatus
+)
 from .payment import Payment
 from .gateway_transaction import GatewayTransaction, GatewayTransactionStatus, GatewayType
+from .message import Message # Added for Message model
 
 # It's also common to define db.Model base class here if you have a custom one,
 # or re-export db from hermitta_app if models need it directly without importing hermitta_app.
