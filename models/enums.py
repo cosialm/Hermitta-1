@@ -106,6 +106,38 @@ class NotificationStatus(enum.Enum):
     CANCELLED = "CANCELLED"             # Scheduled notification was cancelled before sending
     INVALID_ADDRESS = "INVALID_ADDRESS" # e.g. Email bounced, invalid phone for SMS
 
+class GatewayType(enum.Enum): # Centralized GatewayType
+    PESAPAL = "PESAPAL"
+    STRIPE = "STRIPE"
+    FLUTTERWAVE = "FLUTTERWAVE"
+    PAYPAL = "PAYPAL"
+    MPESA_STK_PUSH = "MPESA_STK_PUSH" # For Daraja STK Push initiated by system/landlord
+    # MPESA_C2B = "MPESA_C2B" # If system directly receives C2B notifications for landlord's paybill/till
+    # BANK_TRANSFER = "BANK_TRANSFER" # For tracking expected bank transfers
+    OTHER_GENERIC_GATEWAY = "OTHER_GENERIC_GATEWAY" # Fallback for other integrated gateways
+    MANUAL_BANK_TRANSFER_VERIFICATION = "MANUAL_BANK_TRANSFER_VERIFICATION" # Matches previous use in GatewayTransaction
+
+class MpesaShortcodeType(enum.Enum):
+    PAYBILL = "PAYBILL"
+    TILL_NUMBER = "TILL_NUMBER" # Business Till / Buy Goods Till
+    NONE = "NONE" # If landlord isn't configuring M-Pesa for direct collection or STK
+
+class GatewayEnvironment(enum.Enum):
+    SANDBOX = "SANDBOX"
+    PRODUCTION = "PRODUCTION"
+    TESTING = "TESTING" # Generic testing if not sandbox/prod
+
+class GatewayTransactionStatus(enum.Enum):
+    PENDING = "PENDING"         # Transaction initiated, awaiting confirmation from gateway
+    SUCCESSFUL = "SUCCESSFUL"   # Payment confirmed by the gateway
+    FAILED = "FAILED"           # Payment failed or was declined by the gateway
+    CANCELLED = "CANCELLED"       # Payment was cancelled by user or system before completion at gateway
+    PROCESSING = "PROCESSING"     # Gateway is still processing (e.g., some bank transfers, ACH)
+    REQUIRES_ACTION = "REQUIRES_ACTION" # e.g., 3DS authentication, CAPTCHA, or other user step needed
+    UNKNOWN = "UNKNOWN"           # Status could not be determined from gateway response
+    REFUNDED = "REFUNDED"         # Transaction was successfully refunded via the gateway
+    PARTIALLY_REFUNDED = "PARTIALLY_REFUNDED" # Transaction was partially refunded
+
 
 # It's good practice to also have general status enums if they are used across multiple models
 class GeneralStatus(enum.Enum):
