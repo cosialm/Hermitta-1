@@ -64,12 +64,18 @@ class FinancialTransaction(db.Model):
     property = db.relationship('Property', backref=db.backref('financial_transactions', lazy='dynamic'))
     lease = db.relationship('Lease', backref=db.backref('financial_transactions', lazy='dynamic'))
 
+    # Relationship to the Payment model
+    # A financial transaction can be directly related to a specific payment record.
+    related_payment = db.relationship('Payment',
+                                      foreign_keys=[related_payment_id],
+                                      backref=db.backref('financial_entries', lazy='dynamic'))
+
     # Self-referential relationship for recurring transactions
     child_transactions = db.relationship('FinancialTransaction',
                                          backref=db.backref('parent_transaction', remote_side=[transaction_id]),
                                          lazy='dynamic')
 
-    # TODO: Add relationships for category, related_payment, maintenance_request, document when those models are converted.
+    # TODO: Add relationships for category, maintenance_request, document when those models are converted/confirmed.
 
     def __repr__(self):
         return f"<FinancialTransaction {self.transaction_id}: {self.description} ({self.type.value} {self.amount})>"

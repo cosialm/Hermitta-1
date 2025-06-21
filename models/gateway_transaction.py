@@ -1,82 +1,91 @@
-from enum import Enum
+import enum
 from datetime import datetime
 from typing import Optional, Dict, Any
 from decimal import Decimal
+from hermitta_app import db # Main SQLAlchemy db instance
+# from .payment import Payment # Will be linked via backref from Payment model
 
-# Assuming Payment model exists in models.payment (or similar)
-# from .payment import Payment
-# Assuming GatewayType from rental_management_mvp.models.landlord_gateway_config
-# This creates a slight dependency; ideally, GatewayType might be defined more centrally if used widely.
-# For now, let's assume it can be referenced or redefined if necessary.
-class GatewayTransactionStatus(Enum):
+# Enums specific to Gateway Transactions
+# If these become broadly used, consider moving to models.enums.py
+class GatewayTransactionStatus(enum.Enum):
     PENDING = "PENDING"         # Transaction initiated, awaiting confirmation
     SUCCESSFUL = "SUCCESSFUL"   # Payment confirmed by the gateway
     FAILED = "FAILED"           # Payment failed or was declined by the gateway
     CANCELLED = "CANCELLED"       # Payment was cancelled by user or system
     PROCESSING = "PROCESSING"     # Gateway is still processing (e.g., some bank transfers)
     REQUIRES_ACTION = "REQUIRES_ACTION" # e.g., 3DS authentication needed
+    UNKNOWN = "UNKNOWN"           # Status could not be determined
 
-class GatewayTypeEnum(Enum): # Redefining for local use if cross-module import is an issue in this context
-    MPESA_DIRECT = "MPESA_DIRECT"
+class GatewayType(enum.Enum):
+    MPESA_STK_PUSH = "MPESA_STK_PUSH" # For M-Pesa STK Push
     PESAPAL = "PESAPAL"
     STRIPE = "STRIPE"
     FLUTTERWAVE = "FLUTTERWAVE"
+    PAYPAL = "PAYPAL"
+    BANK_TRANSFER_MANUAL_VERIFICATION = "BANK_TRANSFER_MANUAL_VERIFICATION" # For tracking manual bank transfers that need verification
     OTHER = "OTHER"
 
-class GatewayTransaction:
-    def __init__(self,
-                 transaction_id: int, # PK
-                 payment_id: int, # FK to our internal Payment model
-                 gateway_type: GatewayTypeEnum,
-                 amount: Decimal, # Amount processed by the gateway - moved up
-                 currency: str, # Currency code (e.g., "KES") - moved up
-                 gateway_transaction_ref: Optional[str] = None, # Unique ID from the gateway (e.g., Pesapal tracking ID)
-                 gateway_merchant_ref: Optional[str] = None, # Our internal unique reference sent to the gateway
-                 status: GatewayTransactionStatus = GatewayTransactionStatus.PENDING,
-                 payment_method_used: Optional[str] = None, # e.g., "CARD", "MPESA", "AIRTELMONEY" (provided by gateway)
-                 raw_request_payload: Optional[Dict[str, Any]] = None, # What we sent to the gateway (excluding sensitive details)
-                 raw_response_payload: Optional[Dict[str, Any]] = None, # Initial response from gateway after submission
-                 callback_payload: Optional[Dict[str, Any]] = None, # Full callback/webhook data from the gateway
-                 error_code: Optional[str] = None, # Gateway-specific error code
-                 error_message: Optional[str] = None, # Gateway-specific error message
-                 notes: Optional[str] = None, # Internal notes
-                 created_at: datetime = datetime.utcnow(),
-                 updated_at: datetime = datetime.utcnow()):
+class GatewayTransaction(db.Model):
+    __tablename__ = 'gateway_transactions'
 
-        self.transaction_id = transaction_id
-        self.payment_id = payment_id
-        self.gateway_type = gateway_type
-        self.gateway_transaction_ref = gateway_transaction_ref
-        self.gateway_merchant_ref = gateway_merchant_ref
-        self.status = status
-        self.amount = amount
-        self.currency = currency
-        self.payment_method_used = payment_method_used
-        self.raw_request_payload = raw_request_payload
-        self.raw_response_payload = raw_response_payload
-        self.callback_payload = callback_payload
-        self.error_code = error_code
-        self.error_message = error_message
-        self.notes = notes
-        self.created_at = created_at
-        self.updated_at = updated_at
+    transaction_id = db.Column(db.Integer, primary_key=True)
+    # ForeignKey to payments.payment_id
+    # A single Payment might have multiple GatewayTransaction attempts (e.g. initial attempt failed, user retried)
+    payment_id = db.Column(db.Integer, db.ForeignKey('payments.payment_id'), nullable=False, index=True)
 
-# Example Usage:
-# pesapal_gtx = GatewayTransaction(
-#     transaction_id=1001,
-#     payment_id=201, # Internal Payment ID
-#     gateway_type=GatewayTypeEnum.PESAPAL,
-#     gateway_merchant_ref="OUR_UNIQUE_REF_123",
-#     amount=Decimal("5000.00"),
-#     currency="KES",
-#     status=GatewayTransactionStatus.PENDING
-# )
+    gateway_type = db.Column(db.Enum(GatewayType), nullable=False)
+
+    # Unique ID from the payment gateway (e.g., Pesapal tracking ID, M-Pesa transaction ID, Stripe charge ID)
+    gateway_specific_transaction_id = db.Column(db.String(255), nullable=True, index=True)
+    # Our internal unique reference sent to the gateway, if applicable (e.g. merchant transaction ID)
+    internal_merchant_ref = db.Column(db.String(255), nullable=True, index=True)
+
+    status = db.Column(db.Enum(GatewayTransactionStatus), default=GatewayTransactionStatus.PENDING, nullable=False, index=True)
+
+    amount = db.Column(db.Numeric(12, 2), nullable=False) # Amount processed by the gateway
+    currency = db.Column(db.String(10), nullable=False) # Currency code (e.g., "KES", "USD")
+
+    # Specific payment method used at the gateway, if provided by gateway (e.g., "CARD", "MPESA", "AIRTELMONEY")
+    payment_method_detail = db.Column(db.String(100), nullable=True)
+
+    # Store payloads for debugging and auditing. Be careful about storing full sensitive data.
+    # Consider encrypting sensitive parts if stored, or omitting them.
+    raw_request_payload = db.Column(db.JSON, nullable=True) # What we sent to the gateway
+    raw_response_payload = db.Column(db.JSON, nullable=True) # Initial synchronous response from gateway
+    callback_payload = db.Column(db.JSON, nullable=True) # Full callback/webhook data from the gateway
+
+    error_code = db.Column(db.String(100), nullable=True) # Gateway-specific error code
+    error_message = db.Column(db.Text, nullable=True) # Gateway-specific error message
+
+    notes = db.Column(db.Text, nullable=True) # Internal notes regarding this gateway transaction
+
+    initiated_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False) # When this gateway transaction was initiated
+    last_updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False) # When this record was last updated
+
+    # Relationship back to Payment
+    # A payment can have multiple gateway transaction attempts.
+    payment = db.relationship('Payment', backref=db.backref('gateway_transactions_attempts', lazy='dynamic'))
+
+    def __repr__(self):
+        return f"<GatewayTransaction {self.transaction_id} for Payment {self.payment_id} - Gateway: {self.gateway_type.value} Status: {self.status.value}>"
+
+# Example:
+# If a Payment of KES 5000 is initiated via Pesapal:
+# 1. A Payment record is created (status e.g. PENDING_CONFIRMATION).
+# 2. A GatewayTransaction record is created:
+#    payment_id = (ID of the Payment record)
+#    gateway_type = GatewayType.PESAPAL
+#    internal_merchant_ref = "UNIQUE_OUR_SYSTEM_REF_FOR_THIS_ATTEMPT"
+#    amount = 5000.00
+#    currency = "KES"
+#    status = GatewayTransactionStatus.PENDING
 #
-# # After successful callback:
-# # pesapal_gtx.status = GatewayTransactionStatus.SUCCESSFUL
-# # pesapal_gtx.gateway_transaction_ref = "PESAPAL_TRACK_ID_ABC"
-# # pesapal_gtx.payment_method_used = "MPESA"
-# # pesapal_gtx.callback_payload = {"data": "full_pesapal_callback_data"}
-# # pesapal_gtx.updated_at = datetime.utcnow()
+# If the Pesapal callback indicates success:
+#    GatewayTransaction status -> SUCCESSFUL
+#    gateway_specific_transaction_id = "PESAPAL_TRACKING_ID"
+#    Payment status -> COMPLETED
 #
-# print(pesapal_gtx.gateway_type, pesapal_gtx.gateway_merchant_ref, pesapal_gtx.status)
+# If it fails:
+#    GatewayTransaction status -> FAILED
+#    Payment status -> might revert to EXPECTED or FAILED depending on logic.
+# User might retry, creating a new GatewayTransaction record for the same Payment ID.
