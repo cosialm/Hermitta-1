@@ -35,12 +35,15 @@ from .mpesa_payment_log import MpesaPaymentLog # Assuming this is an SQLAlchemy 
 # New models and enums related to Payment integration:
 from .enums import (
     PaymentMethod, PaymentStatus,
-    MessageType, MessageStatus, # Added for Message model
+    MessageType, MessageStatus,
+    NotificationChannel, NotificationType, NotificationStatus as NotificationState, # Renamed to avoid clash with model
     GeneralStatus, MaintenanceRequestStatus
 )
 from .payment import Payment
 from .gateway_transaction import GatewayTransaction, GatewayTransactionStatus, GatewayType
-from .message import Message # Added for Message model
+from .message import Message
+from .notification_template import NotificationTemplate # Added for Notification models
+from .notification import Notification # Added for Notification models
 
 # It's also common to define db.Model base class here if you have a custom one,
 # or re-export db from hermitta_app if models need it directly without importing hermitta_app.

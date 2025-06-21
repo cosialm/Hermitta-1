@@ -45,6 +45,67 @@ class MessageStatus(enum.Enum):
     DELETED_BY_SENDER = "DELETED_BY_SENDER" # Sender soft-deleted their copy
     DELETED_BY_RECEIVER = "DELETED_BY_RECEIVER" # Receiver soft-deleted their copy
 
+class NotificationChannel(enum.Enum):
+    EMAIL = "EMAIL"
+    SMS = "SMS"
+    IN_APP = "IN_APP"
+    # PUSH_NOTIFICATION = "PUSH_NOTIFICATION" # Could be a separate channel or part of IN_APP logic
+
+class NotificationType(enum.Enum):
+    # General & Account
+    WELCOME_MESSAGE = "WELCOME_MESSAGE"
+    ACCOUNT_ACTIVATION = "ACCOUNT_ACTIVATION"
+    PASSWORD_RESET_REQUEST = "PASSWORD_RESET_REQUEST"
+    PASSWORD_CHANGED_CONFIRMATION = "PASSWORD_CHANGED_CONFIRMATION"
+    EMAIL_VERIFICATION = "EMAIL_VERIFICATION"
+    PROFILE_UPDATE_CONFIRMATION = "PROFILE_UPDATE_CONFIRMATION"
+    # Lease Related
+    LEASE_AGREEMENT_SHARED = "LEASE_AGREEMENT_SHARED"
+    LEASE_SIGNED_CONFIRMATION = "LEASE_SIGNED_CONFIRMATION"
+    LEASE_RENEWAL_REMINDER = "LEASE_RENEWAL_REMINDER"
+    LEASE_EXPIRATION_REMINDER = "LEASE_EXPIRATION_REMINDER"
+    LEASE_TERMINATION_NOTICE = "LEASE_TERMINATION_NOTICE"
+    MOVE_IN_REMINDER = "MOVE_IN_REMINDER"
+    MOVE_OUT_REMINDER = "MOVE_OUT_REMINDER"
+    # Payment Related
+    RENT_REMINDER = "RENT_REMINDER"
+    RENT_OVERDUE_NOTICE = "RENT_OVERDUE_NOTICE"
+    PAYMENT_RECEIVED_CONFIRMATION = "PAYMENT_RECEIVED_CONFIRMATION"
+    PAYMENT_FAILED_ALERT = "PAYMENT_FAILED_ALERT"
+    INVOICE_GENERATED = "INVOICE_GENERATED" # For utilities, services etc.
+    REFUND_PROCESSED = "REFUND_PROCESSED"
+    # Maintenance Related
+    MAINTENANCE_REQUEST_RECEIVED = "MAINTENANCE_REQUEST_RECEIVED"
+    MAINTENANCE_STATUS_UPDATE = "MAINTENANCE_STATUS_UPDATE" # e.g. scheduled, in_progress, completed
+    MAINTENANCE_QUOTE_AVAILABLE = "MAINTENANCE_QUOTE_AVAILABLE"
+    MAINTENANCE_FEEDBACK_REQUEST = "MAINTENANCE_FEEDBACK_REQUEST"
+    # Communication & Document Related
+    NEW_MESSAGE_ALERT = "NEW_MESSAGE_ALERT" # User received a new direct message
+    NEW_DOCUMENT_SHARED = "NEW_DOCUMENT_SHARED"
+    DOCUMENT_EXPIRING_SOON = "DOCUMENT_EXPIRING_SOON" # e.g. compliance docs
+    # Property & Prospect Related
+    NEW_PROPERTY_LISTING_MATCH = "NEW_PROPERTY_LISTING_MATCH" # For prospects
+    PROPERTY_VIEWING_CONFIRMATION = "PROPERTY_VIEWING_CONFIRMATION"
+    PROPERTY_VIEWING_REMINDER = "PROPERTY_VIEWING_REMINDER"
+    APPLICATION_RECEIVED_CONFIRMATION = "APPLICATION_RECEIVED_CONFIRMATION" # For landlord & applicant
+    APPLICATION_STATUS_UPDATE = "APPLICATION_STATUS_UPDATE" # For applicant
+    # System & Other
+    SYSTEM_ALERT = "SYSTEM_ALERT" # General system alerts
+    BROADCAST_ANNOUNCEMENT = "BROADCAST_ANNOUNCEMENT" # To groups of users
+    OTHER = "OTHER" # Generic catch-all
+
+class NotificationStatus(enum.Enum):
+    SCHEDULED = "SCHEDULED"             # Notification is scheduled for future sending
+    PENDING = "PENDING"                 # Queued for immediate sending by the notification dispatcher (renamed from PENDING_SEND)
+    SENT = "SENT"                       # Successfully dispatched to the gateway (e.g., email server, SMS provider) (renamed from SENT_SUCCESS)
+    FAILED = "FAILED"                   # Failed to dispatch to the gateway (renamed from SENT_FAIL)
+    DELIVERED = "DELIVERED"             # Gateway confirmed delivery to recipient's device/server (renamed from DELIVERY_CONFIRMED)
+    DELIVERY_FAILURE = "DELIVERY_FAILURE" # Gateway confirmed failure to deliver (renamed from DELIVERY_FAILED)
+    READ = "READ"                       # User has marked the notification as read (primarily for IN_APP)
+    ARCHIVED = "ARCHIVED"               # User has archived the notification
+    CANCELLED = "CANCELLED"             # Scheduled notification was cancelled before sending
+    INVALID_ADDRESS = "INVALID_ADDRESS" # e.g. Email bounced, invalid phone for SMS
+
 
 # It's good practice to also have general status enums if they are used across multiple models
 class GeneralStatus(enum.Enum):
