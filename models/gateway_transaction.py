@@ -3,27 +3,17 @@ from datetime import datetime
 from typing import Optional, Dict, Any
 from decimal import Decimal
 from hermitta_app import db # Main SQLAlchemy db instance
+from .enums import GatewayType, GatewayTransactionStatus # Import centralized enums
+
 # from .payment import Payment # Will be linked via backref from Payment model
 
-# Enums specific to Gateway Transactions
-# If these become broadly used, consider moving to models.enums.py
-class GatewayTransactionStatus(enum.Enum):
-    PENDING = "PENDING"         # Transaction initiated, awaiting confirmation
-    SUCCESSFUL = "SUCCESSFUL"   # Payment confirmed by the gateway
-    FAILED = "FAILED"           # Payment failed or was declined by the gateway
-    CANCELLED = "CANCELLED"       # Payment was cancelled by user or system
-    PROCESSING = "PROCESSING"     # Gateway is still processing (e.g., some bank transfers)
-    REQUIRES_ACTION = "REQUIRES_ACTION" # e.g., 3DS authentication needed
-    UNKNOWN = "UNKNOWN"           # Status could not be determined
-
-class GatewayType(enum.Enum):
-    MPESA_STK_PUSH = "MPESA_STK_PUSH" # For M-Pesa STK Push
-    PESAPAL = "PESAPAL"
-    STRIPE = "STRIPE"
-    FLUTTERWAVE = "FLUTTERWAVE"
-    PAYPAL = "PAYPAL"
-    BANK_TRANSFER_MANUAL_VERIFICATION = "BANK_TRANSFER_MANUAL_VERIFICATION" # For tracking manual bank transfers that need verification
-    OTHER = "OTHER"
+# Local Enums MOVED to models.enums.py:
+# class GatewayTransactionStatus(enum.Enum):
+#     PENDING = "PENDING"
+#     # ... (rest of enum definition)
+# class GatewayType(enum.Enum):
+#     MPESA_STK_PUSH = "MPESA_STK_PUSH"
+#     # ... (rest of enum definition)
 
 class GatewayTransaction(db.Model):
     __tablename__ = 'gateway_transactions'

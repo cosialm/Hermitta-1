@@ -36,14 +36,18 @@ from .mpesa_payment_log import MpesaPaymentLog # Assuming this is an SQLAlchemy 
 from .enums import (
     PaymentMethod, PaymentStatus,
     MessageType, MessageStatus,
-    NotificationChannel, NotificationType, NotificationStatus as NotificationState, # Renamed to avoid clash with model
+    NotificationChannel, NotificationType, NotificationStatus as NotificationState,
+    GatewayType, GatewayTransactionStatus, MpesaShortcodeType, GatewayEnvironment, # Added for gateway configs
     GeneralStatus, MaintenanceRequestStatus
 )
 from .payment import Payment
-from .gateway_transaction import GatewayTransaction, GatewayTransactionStatus, GatewayType
+# GatewayTransaction now imports its enums from models.enums
+from .gateway_transaction import GatewayTransaction
 from .message import Message
-from .notification_template import NotificationTemplate # Added for Notification models
-from .notification import Notification # Added for Notification models
+from .notification_template import NotificationTemplate
+from .notification import Notification
+from .landlord_mpesa_config import LandlordMpesaConfig # Added for Landlord Mpesa Config
+from .landlord_gateway_config import LandlordGatewayConfig # Added for Landlord Gateway Config
 
 # It's also common to define db.Model base class here if you have a custom one,
 # or re-export db from hermitta_app if models need it directly without importing hermitta_app.
