@@ -2,7 +2,7 @@ from enum import Enum
 from datetime import datetime
 from typing import Optional
 
-class DocumentType(Enum):
+class MvpDocumentTypeConcept(Enum): # Renamed
     LEASE_AGREEMENT = "LEASE_AGREEMENT"
     LEASE_ADDENDUM = "LEASE_ADDENDUM"
     INSPECTION_REPORT_MOVE_IN = "INSPECTION_REPORT_MOVE_IN"
@@ -21,12 +21,12 @@ class DocumentType(Enum):
     GENERAL_CORRESPONDENCE = "GENERAL_CORRESPONDENCE"
     OTHER = "OTHER"
 
-class Document:
+class MvpDocumentConcept: # Renamed
     def __init__(self,
                  document_id: int,
                  uploader_user_id: int, # FK to User
                  document_name: str,
-                 document_type: DocumentType, # Or string if more flexibility needed initially
+                 document_type: MvpDocumentTypeConcept, # Or string if more flexibility needed initially
                  file_url: str, # URL to the stored file (e.g., S3, Google Cloud Storage)
                  property_id: Optional[int] = None, # FK to Property
                  lease_id: Optional[int] = None,    # FK to Lease

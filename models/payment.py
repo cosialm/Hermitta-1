@@ -3,6 +3,7 @@ from typing import Optional
 from decimal import Decimal
 from hermitta_app import db # Main SQLAlchemy db instance
 from .enums import PaymentMethod, PaymentStatus # Import from new enums file
+from .landlord_bank_account import LandlordBankAccount # Explicit import
 
 class Payment(db.Model):
     __tablename__ = 'payments'
