@@ -2,7 +2,9 @@ import enum
 from datetime import datetime, date
 from typing import Optional # Keep for type hinting
 from decimal import Decimal
+from sqlalchemy.orm import foreign, remote # Corrected import path
 from hermitta_app import db # Import db instance
+from .payment import Payment # Explicit import of Payment model
 
 class FinancialTransactionType(enum.Enum): # Should be consistent with UserFinancialCategory
     INCOME = "INCOME"
@@ -66,9 +68,11 @@ class FinancialTransaction(db.Model):
 
     # Relationship to the Payment model
     # A financial transaction can be directly related to a specific payment record.
-    related_payment = db.relationship('Payment',
-                                      foreign_keys=[related_payment_id],
-                                      backref=db.backref('financial_entries', lazy='dynamic'))
+    related_payment = db.relationship(
+        'Payment',
+        primaryjoin=lambda: foreign(FinancialTransaction.related_payment_id) == Payment.payment_id,
+        backref=db.backref('financial_entries', lazy='dynamic')
+    )
 
     # Self-referential relationship for recurring transactions
     child_transactions = db.relationship('FinancialTransaction',

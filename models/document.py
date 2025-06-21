@@ -1,80 +1,70 @@
-from enum import Enum
-from datetime import datetime, date # Added date for expiry_date
-from typing import Optional, List, Any # Added List for tags (JSON)
+from datetime import datetime, date
+from typing import Optional, List
+from hermitta_app import db # Import db instance
+from .enums import DocumentType # Import from shared enums
 
-class DocumentType(Enum): # From initial Phase 4 outline
-    LEASE_AGREEMENT = "LEASE_AGREEMENT"
-    LEASE_ADDENDUM = "LEASE_ADDENDUM"
-    INSPECTION_REPORT_MOVE_IN = "INSPECTION_REPORT_MOVE_IN"
-    INSPECTION_REPORT_MOVE_OUT = "INSPECTION_REPORT_MOVE_OUT"
-    RENTAL_APPLICATION_FORM_SUBMITTED = "RENTAL_APPLICATION_FORM_SUBMITTED" # The application PDF itself
-    SCREENING_REPORT_CREDIT = "SCREENING_REPORT_CREDIT"
-    SCREENING_REPORT_BACKGROUND = "SCREENING_REPORT_BACKGROUND"
-    INVOICE_VENDOR = "INVOICE_VENDOR"
-    RECEIPT_EXPENSE = "RECEIPT_EXPENSE" # For financial transactions (landlord expense)
-    RECEIPT_PAYMENT_FROM_TENANT = "RECEIPT_PAYMENT_FROM_TENANT" # Rent payment receipt issued to tenant
-    PROPERTY_PHOTO_GENERAL = "PROPERTY_PHOTO_GENERAL"
-    MAINTENANCE_ISSUE_PHOTO = "MAINTENANCE_ISSUE_PHOTO"
-    MAINTENANCE_COMPLETION_PHOTO = "MAINTENANCE_COMPLETION_PHOTO"
-    MAINTENANCE_INVOICE_RECEIPT = "MAINTENANCE_INVOICE_RECEIPT" # From vendor for maintenance work
-    INSURANCE_POLICY_PROPERTY = "INSURANCE_POLICY_PROPERTY"
-    NOTICE_TO_TENANT_GENERAL = "NOTICE_TO_TENANT_GENERAL"
-    TENANT_ID_DOCUMENT = "TENANT_ID_DOCUMENT" # e.g. National ID uploaded by tenant or landlord
-    LANDLORD_KRA_PIN_CERT = "LANDLORD_KRA_PIN_CERT"
-    OTHER = "OTHER"
+class Document(db.Model):
+    __tablename__ = 'documents'
 
-class Document:
-    def __init__(self,
-                 document_id: int,
-                 uploader_user_id: int, # FK to User (who uploaded this doc)
-                 document_name: str, # User-friendly name, e.g., "Lease Agreement - John Doe - Unit 5A.pdf"
-                 document_type: DocumentType,
-                 file_url: str, # URL to the stored file (e.g., S3, Google Cloud Storage)
-                 file_mime_type: Optional[str] = None,
-                 file_size_bytes: Optional[int] = None,
-                 description: Optional[str] = None, # Optional notes about the document
-                 # Contextual Links (Optional Foreign Keys)
-                 property_id: Optional[int] = None,
-                 lease_id: Optional[int] = None,
-                 rental_application_id: Optional[int] = None,
-                 maintenance_request_id: Optional[int] = None,
-                 financial_transaction_id: Optional[int] = None,
-                 # Phase 4 Refinements:
-                 folder_id: Optional[int] = None, # FK to DocumentFolder
-                 tags: Optional[List[str]] = None, # e.g., ["unit-5a", "tax-2023", "invoice"]
-                 expiry_date: Optional[date] = None, # For documents like insurance policies
-                 reminder_date_for_expiry: Optional[date] = None, # System can notify user before expiry
-                 uploaded_at: datetime = datetime.utcnow(),
-                 updated_at: datetime = datetime.utcnow()):
+    document_id = db.Column(db.Integer, primary_key=True)
+    uploader_user_id = db.Column(db.Integer, db.ForeignKey('users.user_id'), nullable=False, index=True)
 
-        self.document_id = document_id
-        self.uploader_user_id = uploader_user_id
+    document_name = db.Column(db.String(255), nullable=False)
+    document_type = db.Column(db.Enum(DocumentType), nullable=False, index=True)
 
-        self.document_name = document_name
-        self.document_type = document_type
-        self.file_url = file_url
-        self.file_mime_type = file_mime_type
-        self.file_size_bytes = file_size_bytes
-        self.description = description
+    file_url = db.Column(db.String(1024), nullable=False) # URL to the stored file
+    file_mime_type = db.Column(db.String(100), nullable=True)
+    file_size_bytes = db.Column(db.Integer, nullable=True)
 
-        # Contextual links
-        self.property_id = property_id
-        self.lease_id = lease_id
-        self.rental_application_id = rental_application_id
-        self.maintenance_request_id = maintenance_request_id
-        self.financial_transaction_id = financial_transaction_id
+    description = db.Column(db.Text, nullable=True)
 
-        # Folder, tags, expiry
-        self.folder_id = folder_id
-        self.tags = tags if tags is not None else []
-        self.expiry_date = expiry_date
-        self.reminder_date_for_expiry = reminder_date_for_expiry
+    # Contextual Links (Optional Foreign Keys)
+    property_id = db.Column(db.Integer, db.ForeignKey('properties.property_id'), nullable=True, index=True)
+    lease_id = db.Column(db.Integer, db.ForeignKey('leases.lease_id'), nullable=True, index=True)
+    rental_application_id = db.Column(db.Integer, db.ForeignKey('rental_applications.application_id'), nullable=True, index=True)
+    maintenance_request_id = db.Column(db.Integer, db.ForeignKey('maintenance_requests.request_id'), nullable=True, index=True)
+    financial_transaction_id = db.Column(db.Integer, db.ForeignKey('financial_transactions.transaction_id'), nullable=True, index=True)
 
-        self.uploaded_at = uploaded_at
-        self.updated_at = updated_at
+    folder_id = db.Column(db.Integer, db.ForeignKey('document_folders.folder_id'), nullable=True, index=True) # FK to DocumentFolder
 
-# Example Usage:
+    tags = db.Column(db.JSON, nullable=True) # List of strings, e.g., ["unit-5a", "tax-2023", "invoice"]
+
+    expiry_date = db.Column(db.Date, nullable=True, index=True) # For documents like insurance policies
+    reminder_date_for_expiry = db.Column(db.Date, nullable=True) # System can notify user before expiry
+
+    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # Relationships
+    uploader = db.relationship('User', backref=db.backref('uploaded_documents', lazy='dynamic'))
+    property = db.relationship('Property', backref=db.backref('documents', lazy='dynamic'))
+    lease = db.relationship('Lease', backref=db.backref('documents', lazy='dynamic'))
+    # rental_application = db.relationship('RentalApplication', backref=db.backref('documents', lazy='dynamic')) # Ensure RentalApplication model exists
+    # maintenance_request = db.relationship('MaintenanceRequest', backref=db.backref('documents', lazy='dynamic')) # Ensure MaintenanceRequest model exists
+    # financial_transaction = db.relationship('FinancialTransaction', backref=db.backref('documents', lazy='dynamic')) # Ensure FinancialTransaction model exists
+    # document_folder = db.relationship('DocumentFolder', backref=db.backref('documents', lazy='dynamic')) # Ensure DocumentFolder model exists
+
+    # Notifications related to this document are backref'd from Notification.document
+
+    def __repr__(self):
+        return f"<Document {self.document_id} '{self.document_name}' Type: {self.document_type.value}>"
+
+# Example Usage (SQLAlchemy style):
 # insurance_doc = Document(
+#     uploader_user_id=10,
+#     document_name="Property_XYZ_Insurance_Policy_2024.pdf",
+#     document_type=DocumentType.INSURANCE_POLICY_PROPERTY,
+#     file_url="https://storage.example.com/docs/prop_xyz_insurance_2024.pdf",
+#     property_id=101,
+#     folder_id=20,
+#     tags=["insurance", "property-xyz", "annual"],
+#     expiry_date=date(2024, 12, 31),
+#     reminder_date_for_expiry=date(2024, 11, 30)
+# )
+# db.session.add(insurance_doc)
+# db.session.commit()
+
+# tenant_lease_scan = Document(
 #     document_id=1, uploader_user_id=10, # Landlord
 #     document_name="Property_XYZ_Insurance_Policy_2024.pdf",
 #     document_type=DocumentType.INSURANCE_POLICY_PROPERTY,

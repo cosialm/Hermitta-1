@@ -2,6 +2,11 @@ from datetime import datetime
 from typing import Optional
 from hermitta_app import db
 from .enums import NotificationType, NotificationChannel, NotificationStatus # Import from shared enums
+from .document import Document
+from .lease import Lease
+from .payment import Payment
+from .message import Message
+from .maintenance_request import MaintenanceRequest
 
 class Notification(db.Model):
     __tablename__ = 'notifications'

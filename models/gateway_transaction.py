@@ -54,7 +54,11 @@ class GatewayTransaction(db.Model):
 
     # Relationship back to Payment
     # A payment can have multiple gateway transaction attempts.
-    payment = db.relationship('Payment', backref=db.backref('gateway_transactions_attempts', lazy='dynamic'))
+    payment = db.relationship(
+        'Payment',
+        foreign_keys=[payment_id], # Specify the FK for this side of the relationship
+        backref=db.backref('gateway_transactions_attempts', lazy='dynamic')
+    )
 
     def __repr__(self):
         return f"<GatewayTransaction {self.transaction_id} for Payment {self.payment_id} - Gateway: {self.gateway_type.value} Status: {self.status.value}>"

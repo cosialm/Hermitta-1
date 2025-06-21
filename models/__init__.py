@@ -38,7 +38,9 @@ from .enums import (
     MessageType, MessageStatus,
     NotificationChannel, NotificationType, NotificationStatus as NotificationState,
     GatewayType, GatewayTransactionStatus, MpesaShortcodeType, GatewayEnvironment,
-    ReminderRuleEvent, ReminderRecipientType, ReminderTimeUnit, # Added for reminder rules
+    ReminderRuleEvent, ReminderRecipientType, ReminderTimeUnit,
+    BankAccountType,
+    DocumentType, # Added for Document model
     GeneralStatus, MaintenanceRequestStatus
 )
 from .payment import Payment
@@ -49,7 +51,8 @@ from .notification_template import NotificationTemplate
 from .notification import Notification
 from .landlord_mpesa_config import LandlordMpesaConfig
 from .landlord_gateway_config import LandlordGatewayConfig
-from .landlord_reminder_rule import LandlordReminderRule # Added for Landlord Reminder Rule
+from .landlord_reminder_rule import LandlordReminderRule
+from .notification_trigger_log import NotificationTriggerLog # Added for NotificationTriggerLog
 
 # It's also common to define db.Model base class here if you have a custom one,
 # or re-export db from hermitta_app if models need it directly without importing hermitta_app.
