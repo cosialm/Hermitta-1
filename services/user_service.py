@@ -55,15 +55,32 @@ class UserService:
         user_data should contain all necessary fields.
         Password should be provided as 'password' (to be hashed) or 'password_hash' (pre-hashed).
         """
+        required_fields = ['email', 'phone_number', 'first_name', 'last_name']
+        # Password check is special: either 'password' or 'password_hash' must be present
+        has_password = 'password' in user_data or 'password_hash' in user_data
+
+        missing_fields = [field for field in required_fields if field not in user_data]
+        if not has_password:
+            missing_fields.append("password/password_hash")
+
+        if missing_fields:
+            raise ValueError(f"Missing required fields for User creation: {', '.join(missing_fields)}")
+
         prepared_data = self._prepare_user_data(user_data)
 
-        # Ensure KRA PIN is None if role is not LANDLORD
+        # Ensure KRA PIN is None if role is not LANDLORD (already handled in _prepare_user_data but good for explicitness)
         if prepared_data.get('role') != UserRole.LANDLORD:
             prepared_data['kra_pin'] = None
 
-        new_user = User(**prepared_data)
-        db.session.add(new_user)
-        db.session.commit()
+        try:
+            new_user = User(**prepared_data)
+            db.session.add(new_user)
+            db.session.commit()
+        except Exception as e: # Catch potential DB errors or other issues during User instantiation
+            db.session.rollback()
+            # It might be better to let specific SQLAlchemy errors propagate if they are distinct
+            # from validation errors, or wrap them in a custom service exception.
+            raise ValueError(f"Error during User creation: {e}")
         return new_user
 
     def get_user_by_id(self, user_id: int) -> Optional[User]:
@@ -82,16 +99,24 @@ class UserService:
 
         prepared_data = self._prepare_user_data(update_data)
 
-        # If role is changing, ensure KRA PIN logic is applied
-        if 'role' in prepared_data and prepared_data['role'] != UserRole.LANDLORD:
-            user.kra_pin = None
-        elif 'kra_pin' in prepared_data and user.role != UserRole.LANDLORD : # KRA pin provided but user is not landlord
-             prepared_data.pop('kra_pin', None) # Don't update KRA pin if not landlord
-
+        # Determine the role after update for KRA PIN logic
+        final_role = prepared_data.get('role', user.role)
 
         for key, value in prepared_data.items():
-            if hasattr(user, key):
+            if key == 'kra_pin':
+                if final_role == UserRole.LANDLORD:
+                    setattr(user, key, value)
+                else:
+                    # If role is not LANDLORD (or changing to non-LANDLORD), KRA PIN should be None
+                    user.kra_pin = None
+            elif hasattr(user, key):
                 setattr(user, key, value)
+
+        # If role itself was updated and new role is not LANDLORD, ensure kra_pin is None
+        if 'role' in prepared_data and prepared_data['role'] != UserRole.LANDLORD:
+            user.kra_pin = None
+        # If role was not updated, but user is not LANDLORD, and kra_pin was in update_data,
+        # it would have been set to None by the loop logic above if final_role was not LANDLORD.
 
         db.session.commit()
         return user

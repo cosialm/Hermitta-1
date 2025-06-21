@@ -27,12 +27,23 @@ class PropertyService:
         """
         Creates a new property.
         """
+        required_fields = ['landlord_id', 'address_line_1', 'city', 'county', 'property_type', 'num_bedrooms', 'num_bathrooms']
+        missing_fields = [field for field in required_fields if field not in property_data or property_data[field] is None]
+        if missing_fields:
+            # For num_bedrooms/num_bathrooms, 0 is a valid value, so None check is appropriate.
+            # If property_type is enum, its presence is enough, _prepare_property_data handles conversion/validation.
+            raise ValueError(f"Missing required fields for Property creation: {', '.join(missing_fields)}")
+
         prepared_data = self._prepare_property_data(property_data)
         # Geocoding for latitude/longitude would happen here or be triggered before this call.
         # For now, assume lat/long are provided if available.
-        new_property = Property(**prepared_data)
-        db.session.add(new_property)
-        db.session.commit()
+        try:
+            new_property = Property(**prepared_data)
+            db.session.add(new_property)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            raise ValueError(f"Error during Property creation: {e}")
         return new_property
 
     def get_property_by_id(self, property_id: int) -> Optional[Property]:
@@ -47,34 +58,50 @@ class PropertyService:
         """
         return Property.query.filter_by(property_id=property_id, landlord_id=landlord_id).first()
 
-    def update_property(self, property_obj: Property, update_data: Dict[str, Any]) -> Property:
+    def update_property(self, property_id: int, update_data: Dict[str, Any]) -> Optional[Property]:
         """
-        Updates an existing property object.
-        Assumes ownership check has been done by the caller.
+        Updates an existing property.
         """
+        property_obj = self.get_property_by_id(property_id)
+        if not property_obj:
+            return None
+
         prepared_data = self._prepare_property_data(update_data)
         for key, value in prepared_data.items():
-            if hasattr(property_obj, key): # Check if the attribute exists on the model
+            if hasattr(property_obj, key):
                 setattr(property_obj, key, value)
-        db.session.add(property_obj) # Add to session in case it's detached or to track changes
-        db.session.commit()
+
+        try:
+            db.session.add(property_obj) # Re-attach if it was detached, or ensure it's dirty
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            # Consider more specific error handling or logging
+            raise ValueError(f"Error during Property update: {e}")
         return property_obj
 
-    def delete_property(self, property_obj: Property) -> bool:
+    def delete_property(self, property_id: int) -> bool:
         """
-        Deletes a property object.
-        Assumes ownership check and lease checks (if any) have been done by the caller.
-        TODO: Consider implications like active leases before deleting - this check should be in the route or a pre-delete service method.
+        Deletes a property by its ID.
         """
+        property_obj = self.get_property_by_id(property_id)
+        if not property_obj:
+            return False
+
         # Add checks here: e.g., if property has active leases, prevent deletion or handle accordingly.
         # from models.lease import Lease, LeaseStatusType # Import inside or at top
         # active_leases = Lease.query.filter_by(property_id=property_obj.property_id, status=LeaseStatusType.ACTIVE).count()
         # if active_leases > 0:
         #     raise ValueError("Cannot delete property with active leases.")
-
-        db.session.delete(property_obj)
-        db.session.commit()
-        return True # Should not return False if object must exist to be passed here. Raise error if not found before calling.
+        try:
+            db.session.delete(property_obj)
+            db.session.commit()
+            return True
+        except Exception as e:
+            db.session.rollback()
+            # Consider more specific error handling or logging
+            raise ValueError(f"Error during Property deletion: {e}")
+        return False # Should not be reached if exception is raised
 
     def get_properties_by_landlord(self, landlord_id: int, page: int = 1, per_page: int = 10) -> (List[Property], int):
         """

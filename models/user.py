@@ -87,6 +87,58 @@ class User(db.Model):
     #     # TODO: Implement encryption then set self.otp_secret
     #     self.otp_secret = plain_secret # Placeholder
 
+    def __init__(self, **kwargs):
+        if 'role' not in kwargs:
+            kwargs['role'] = UserRole.TENANT
+        if 'is_phone_verified' not in kwargs:
+            kwargs['is_phone_verified'] = False
+        if 'preferred_login_method' not in kwargs:
+            kwargs['preferred_login_method'] = PreferredLoginMethod.EMAIL
+        if 'preferred_language' not in kwargs:
+            kwargs['preferred_language'] = PreferredLanguage.EN_KE
+
+        # JSON fields that should default to empty structures if not provided or None
+        if kwargs.get('staff_permissions') is None:
+            kwargs['staff_permissions'] = {}
+        if kwargs.get('vendor_services_offered') is None:
+            kwargs['vendor_services_offered'] = []
+        if kwargs.get('otp_backup_codes') is None:
+            kwargs['otp_backup_codes'] = []
+        if kwargs.get('data_processing_consent_details') is None: # Assuming it can be an empty dict if not None
+            kwargs['data_processing_consent_details'] = {}
+
+
+        if 'vendor_total_ratings_count' not in kwargs:
+            kwargs['vendor_total_ratings_count'] = 0
+        if 'is_verified_vendor' not in kwargs: # Explicitly handle boolean default
+            kwargs['is_verified_vendor'] = False
+
+        if 'is_mfa_enabled' not in kwargs:
+            kwargs['is_mfa_enabled'] = False
+        if 'is_active' not in kwargs:
+            kwargs['is_active'] = True
+
+        if 'created_at' not in kwargs:
+            kwargs['created_at'] = datetime.utcnow()
+        if 'updated_at' not in kwargs:
+            kwargs['updated_at'] = datetime.utcnow()
+
+        super().__init__(**kwargs)
+
+        # Post-super __init__ logic for role-dependent fields
+        if self.role != UserRole.LANDLORD:
+            self.kra_pin = None
+
+        if self.role != UserRole.STAFF and self.role != UserRole.ACCOUNTANT:
+            self.staff_permissions = {} # Default to empty if not staff/accountant
+
+        if self.role != UserRole.VENDOR:
+            self.vendor_services_offered = [] # Default to empty if not vendor
+            self.vendor_rating_average = None
+            self.vendor_total_ratings_count = 0
+            self.is_verified_vendor = False
+
+
     def __repr__(self):
         return f"<User {self.user_id}: {self.email} ({self.role.value})>"
 

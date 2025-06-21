@@ -60,6 +60,16 @@ class GatewayTransaction(db.Model):
         backref=db.backref('gateway_transactions_attempts', lazy='dynamic')
     )
 
+    def __init__(self, **kwargs):
+        # Explicitly set defaults if not provided
+        if 'status' not in kwargs:
+            kwargs['status'] = GatewayTransactionStatus.PENDING
+        if 'initiated_at' not in kwargs:
+            kwargs['initiated_at'] = datetime.utcnow()
+        if 'last_updated_at' not in kwargs:
+            kwargs['last_updated_at'] = datetime.utcnow()
+        super().__init__(**kwargs)
+
     def __repr__(self):
         return f"<GatewayTransaction {self.transaction_id} for Payment {self.payment_id} - Gateway: {self.gateway_type.value} Status: {self.status.value}>"
 

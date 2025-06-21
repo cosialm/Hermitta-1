@@ -4,8 +4,21 @@ from decimal import Decimal
 from models.maintenance_request import (
     MaintenanceRequest, MaintenanceRequestStatus, MaintenanceRequestCategory, MaintenancePriority
 )
+from hermitta_app import create_app, db
 
 class TestMaintenanceRequest(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.app = create_app('test')
+        cls.app_context = cls.app.app_context()
+        cls.app_context.push()
+        # db.create_all() # Not strictly needed for model unit tests if not using session
+
+    @classmethod
+    def tearDownClass(cls):
+        # db.drop_all()
+        cls.app_context.pop()
 
     def test_instantiation_with_required_fields(self):
         """Test MaintenanceRequest instantiation with only required fields."""

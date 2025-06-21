@@ -81,6 +81,18 @@ class FinancialTransaction(db.Model):
 
     # TODO: Add relationships for category, maintenance_request, document when those models are converted/confirmed.
 
+    def __init__(self, **kwargs):
+        # Explicitly set defaults if not provided
+        if 'created_at' not in kwargs:
+            kwargs['created_at'] = datetime.utcnow()
+        if 'updated_at' not in kwargs:
+            kwargs['updated_at'] = datetime.utcnow()
+        if 'is_recurring' not in kwargs: # Handle boolean default
+            kwargs['is_recurring'] = False
+        if 'is_tax_deductible_candidate' not in kwargs: # Handle boolean default
+            kwargs['is_tax_deductible_candidate'] = False
+        super().__init__(**kwargs)
+
     def __repr__(self):
         return f"<FinancialTransaction {self.transaction_id}: {self.description} ({self.type.value} {self.amount})>"
 

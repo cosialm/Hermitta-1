@@ -70,6 +70,30 @@ class Property(db.Model):
     # __init__ is handled by db.Model
     # Geocoding logic for latitude/longitude would typically be in the service layer.
 
+    # _SENTINEL = object() # Class level sentinel (not needed with this __init__ approach)
+
+    def __init__(self, **kwargs):
+        if 'status' not in kwargs:
+            kwargs['status'] = PropertyStatus.VACANT
+
+        if 'num_bedrooms' not in kwargs:
+            kwargs['num_bedrooms'] = 0
+        if 'num_bathrooms' not in kwargs:
+            kwargs['num_bathrooms'] = 0
+
+        if 'created_at' not in kwargs:
+            kwargs['created_at'] = datetime.utcnow()
+        if 'updated_at' not in kwargs:
+            kwargs['updated_at'] = datetime.utcnow()
+
+        if kwargs.get('amenities') is None: # Handles omitted or explicitly None
+            kwargs['amenities'] = []
+
+        if kwargs.get('photos_urls') is None: # Handles omitted or explicitly None
+            kwargs['photos_urls'] = []
+
+        super().__init__(**kwargs)
+
     def __repr__(self):
         parts = [f"<Property {self.property_id}: {self.address_line_1}"]
         if self.building_name:
