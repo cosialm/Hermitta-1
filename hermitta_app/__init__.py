@@ -32,9 +32,11 @@ def create_app(config_name=None):
     # Register blueprints
     from hermitta_app.routes.user_routes import user_bp
     from hermitta_app.routes.property_routes import property_bp
+    from hermitta_app.routes.auth_routes import auth_bp # Import the new auth blueprint
 
     app.register_blueprint(user_bp) # url_prefix is defined in the blueprint itself
     app.register_blueprint(property_bp) # url_prefix is defined in the blueprint itself
+    app.register_blueprint(auth_bp) # Register the auth blueprint
 
     # Simple test route
     @app.route('/health')

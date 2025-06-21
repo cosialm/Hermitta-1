@@ -107,69 +107,52 @@ class AuditActionType(Enum):
     SECURITY_UNAUTHORIZED_ACCESS_ATTEMPT = "SECURITY_UNAUTHORIZED_ACCESS_ATTEMPT"
     SECURITY_CALLBACK_VALIDATION_FAILURE = "SECURITY_CALLBACK_VALIDATION_FAILURE" # e.g. M-Pesa callback
 
-class AuditLog:
-    def __init__(self,
-                 log_id: int, # Primary Key, Auto-incrementing Integer
-                 timestamp: datetime, # Auto now add, when the log entry was created
-                 action_type: AuditActionType, # What action was performed
-                 user_id: Optional[int] = None, # FK to User model, Nullable if system-initiated
-                 target_entity_type: Optional[str] = None, # e.g., "User", "Property", "Lease"
-                 target_entity_id: Optional[Union[int, str]] = None, # ID of the affected entity
-                 details_before: Optional[Dict[str, Any]] = None, # JSON snapshot of data before change (for UPDATEs)
-                 details_after: Optional[Dict[str, Any]] = None,  # JSON snapshot of data after change (for CREATEs/UPDATEs)
-                 ip_address: Optional[str] = None,
-                 user_agent: Optional[str] = None,
-                 status: Optional[AuditActionStatus] = AuditActionStatus.SUCCESS, # e.g., for login attempts or actions that can fail
-                 failure_reason: Optional[str] = None, # If status is FAILURE
-                 # Optional: A broader category for easier filtering, can be derived from action_type
-                 action_category: Optional[AuditActionCategory] = None,
-                 notes: Optional[str] = None # Any additional context or notes for this log entry
-                 ):
+# Remove local enum definitions as they are now in models.enums
+# class AuditActionCategory(Enum): ...
+# class AuditActionStatus(Enum): ...
+# class AuditActionType(Enum): ...
 
-        self.log_id = log_id
-        self.user_id = user_id # The user who performed the action, or system if None
-        self.timestamp = timestamp
-        self.action_type = action_type
-        self.action_category = action_category # Can be auto-set based on action_type
+from hermitta_app import db # Import db instance
+from .enums import AuditLogEvent, AuditActionCategory, AuditActionStatus # Import enums
 
-        self.target_entity_type = target_entity_type
-        self.target_entity_id = target_entity_id # Can be int or string (e.g. for string-based IDs if any)
+class AuditLog(db.Model):
+    __tablename__ = 'audit_logs'
 
-        # Storing JSON diffs can be very powerful but also storage-intensive.
-        # For sensitive fields, ensure they are masked or not logged in detail_before/after if too risky.
-        self.details_before = details_before
-        self.details_after = details_after
+    log_id = db.Column(db.Integer, primary_key=True)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
 
-        self.ip_address = ip_address
-        self.user_agent = user_agent
+    event_type = db.Column(db.Enum(AuditLogEvent), nullable=False, index=True) # Changed from action_type
 
-        self.status = status
-        self.failure_reason = failure_reason
-        self.notes = notes
+    user_id = db.Column(db.Integer, db.ForeignKey('users.user_id'), nullable=True, index=True)
 
-# Example Usage:
+    action_category = db.Column(db.Enum(AuditActionCategory), nullable=True, index=True)
+
+    details = db.Column(db.JSON, nullable=True) # Consolidated field
+
+    target_entity_type = db.Column(db.String(100), nullable=True, index=True)
+    target_entity_id = db.Column(db.String(100), nullable=True, index=True) # Using String to accommodate various ID types
+
+    ip_address = db.Column(db.String(45), nullable=True)
+    user_agent = db.Column(db.String(255), nullable=True)
+
+    status = db.Column(db.Enum(AuditActionStatus), default=AuditActionStatus.SUCCESS, nullable=True, index=True)
+
+    # Relationships
+    user = db.relationship('User', backref=db.backref('performed_audit_logs', lazy='dynamic')) # Changed backref name
+
+    def __repr__(self):
+        return f"<AuditLog {self.log_id} - User: {self.user_id}, Event: {self.event_type.value}>"
+
+# Example Usage (SQLAlchemy style):
 # log_entry = AuditLog(
-#     log_id=1, # Auto-incremented in a real DB
-#     timestamp=datetime.utcnow(),
-#     user_id=10, # Landlord User ID
-#     action_type=AuditActionType.PROPERTY_UPDATED,
+#     user_id=10,
+#     event_type=AuditLogEvent.ENTITY_UPDATED,
 #     action_category=AuditActionCategory.PROPERTY_MANAGEMENT,
 #     target_entity_type="Property",
-#     target_entity_id=101,
-#     details_before={"rent_amount": 50000, "status": "VACANT"},
-#     details_after={"rent_amount": 52000, "status": "LISTED"},
+#     target_entity_id="101",
+#     details={"change_summary": "Rent amount updated", "old_values": {"rent_amount": 50000}, "new_values": {"rent_amount": 52000}},
 #     ip_address="192.168.1.100",
-#     user_agent="Mozilla/5.0 ...",
 #     status=AuditActionStatus.SUCCESS
 # )
-#
-# login_failure_log = AuditLog(
-#     log_id=2, timestamp=datetime.utcnow(), user_id=None, # User ID might be unknown or not yet authenticated
-#     action_type=AuditActionType.USER_LOGIN_FAILURE,
-#     action_category=AuditActionCategory.AUTHENTICATION,
-#     details_before={"attempted_email": "unknown_user@example.com"}, # Don't log password attempt
-#     ip_address="203.0.113.45",
-#     status=AuditActionStatus.FAILURE,
-#     failure_reason="Invalid credentials"
-# )
-# print(log_entry.action_type, log_entry.target_entity_id)
+# db.session.add(log_entry)
+# db.session.commit()
