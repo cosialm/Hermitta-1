@@ -27,6 +27,25 @@ class PaymentStatus(enum.Enum):
     PARTIALLY_REFUNDED = "PARTIALLY_REFUNDED" # Payment was partially refunded
     IN_DISPUTE = "IN_DISPUTE"           # Payment is currently under dispute
 
+class MessageType(enum.Enum):
+    DIRECT_MESSAGE = "DIRECT_MESSAGE"         # General user-to-user message
+    LEASE_MESSAGE = "LEASE_MESSAGE"           # Message specifically related to a lease
+    PROPERTY_INQUIRY_RESPONSE = "PROPERTY_INQUIRY_RESPONSE" # Response to a ProspectInquiry
+    MAINTENANCE_COMMUNICATION = "MAINTENANCE_COMMUNICATION" # Related to a maintenance request (distinct from MaintenanceCommunication model for now)
+    SYSTEM_NOTIFICATION = "SYSTEM_NOTIFICATION"   # Automated system message (e.g., rent reminder, account update)
+    BROADCAST_MESSAGE = "BROADCAST_MESSAGE"     # Message from landlord to multiple tenants (e.g. of a property)
+
+class MessageStatus(enum.Enum):
+    SENT = "SENT"                   # Message successfully sent by the system
+    DELIVERED_TO_SERVER = "DELIVERED_TO_SERVER" # Confirmed receipt by messaging server (if applicable)
+    DELIVERED_TO_RECIPIENT = "DELIVERED_TO_RECIPIENT" # Confirmed receipt by recipient's client (e.g., push notification ack)
+    READ = "READ"                   # Recipient has read the message
+    FAILED_TO_SEND = "FAILED_TO_SEND"     # System failed to send the message
+    ARCHIVED = "ARCHIVED"             # Message archived by sender or receiver
+    DELETED_BY_SENDER = "DELETED_BY_SENDER" # Sender soft-deleted their copy
+    DELETED_BY_RECEIVER = "DELETED_BY_RECEIVER" # Receiver soft-deleted their copy
+
+
 # It's good practice to also have general status enums if they are used across multiple models
 class GeneralStatus(enum.Enum):
     ACTIVE = "ACTIVE"
