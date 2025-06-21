@@ -40,7 +40,8 @@ from .enums import (
     GatewayType, GatewayTransactionStatus, MpesaShortcodeType, GatewayEnvironment,
     ReminderRuleEvent, ReminderRecipientType, ReminderTimeUnit,
     BankAccountType,
-    DocumentType, # Added for Document model
+    DocumentType,
+    AuditActionCategory, AuditActionStatus, # Added for AuditLog model
     GeneralStatus, MaintenanceRequestStatus
 )
 from .payment import Payment

@@ -216,3 +216,66 @@ class MaintenanceRequestStatus(enum.Enum):
 # If `GatewayTransactionStatus` and `GatewayTypeEnum` from `gateway_transaction.py`
 # are only used by that model, they can remain there. If they become widely used (e.g. in UI components, reporting),
 # then moving them here would be a good refactor. For now, plan keeps them local.
+
+class AuditActionCategory(enum.Enum): # Broad categories for filtering/grouping
+    AUTHENTICATION = "AUTHENTICATION"
+    USER_MANAGEMENT = "USER_MANAGEMENT"
+    PROPERTY_MANAGEMENT = "PROPERTY_MANAGEMENT"
+    LEASE_MANAGEMENT = "LEASE_MANAGEMENT"
+    FINANCIAL_MANAGEMENT = "FINANCIAL_MANAGEMENT"
+    MAINTENANCE_MANAGEMENT = "MAINTENANCE_MANAGEMENT"
+    DOCUMENT_MANAGEMENT = "DOCUMENT_MANAGEMENT"
+    COMMUNICATION = "COMMUNICATION" # Includes Notifications and Messages
+    SYSTEM_CONFIGURATION = "SYSTEM_CONFIGURATION"
+    SECURITY_EVENT = "SECURITY_EVENT"
+    ADMIN_ACTION = "ADMIN_ACTION" # Specific high-privilege actions
+    JOB_EXECUTION = "JOB_EXECUTION" # For background jobs
+    OTHER = "OTHER"
+
+class AuditActionStatus(enum.Enum):
+    SUCCESS = "SUCCESS"
+    FAILURE = "FAILURE"
+    PENDING = "PENDING" # For actions that might be async or require follow-up
+
+class AuditLogEvent(enum.Enum): # Consolidating/refining based on previous and POPO version
+    # User Account Events
+    USER_REGISTERED = "USER_REGISTERED"
+    USER_LOGIN_SUCCESS = "USER_LOGIN_SUCCESS"
+    USER_LOGIN_FAILURE = "USER_LOGIN_FAILURE"
+    USER_LOGOUT = "USER_LOGOUT" # Conceptual, if sessions/tokens are actively managed
+    USER_PASSWORD_CHANGED = "USER_PASSWORD_CHANGED"
+    USER_PASSWORD_RESET_REQUEST = "USER_PASSWORD_RESET_REQUEST"
+    USER_PASSWORD_RESET_SUCCESS = "USER_PASSWORD_RESET_SUCCESS"
+    USER_PROFILE_UPDATED = "USER_PROFILE_UPDATED"
+    USER_ROLE_CHANGED = "USER_ROLE_CHANGED" # Admin action
+    USER_ACCOUNT_STATUS_CHANGED = "USER_ACCOUNT_STATUS_CHANGED" # e.g. activated, deactivated by admin
+    EMAIL_VERIFICATION_SENT = "EMAIL_VERIFICATION_SENT"
+    EMAIL_VERIFIED = "EMAIL_VERIFIED"
+    PHONE_VERIFICATION_OTP_SENT = "PHONE_VERIFICATION_OTP_SENT"
+    PHONE_VERIFIED = "PHONE_VERIFIED"
+    MFA_SETUP_INITIATED = "MFA_SETUP_INITIATED"
+    MFA_SETUP_COMPLETED = "MFA_SETUP_COMPLETED"
+    MFA_REMOVED = "MFA_REMOVED"
+    MFA_CHALLENGE_SUCCESS = "MFA_CHALLENGE_SUCCESS" # e.g. successful OTP during login
+    MFA_CHALLENGE_FAILURE = "MFA_CHALLENGE_FAILURE"
+
+    # Entity Management Events (generic, details in payload)
+    ENTITY_CREATED = "ENTITY_CREATED" # e.g. PROPERTY_CREATED, LEASE_CREATED
+    ENTITY_UPDATED = "ENTITY_UPDATED" # e.g. PROPERTY_UPDATED, LEASE_UPDATED
+    ENTITY_DELETED = "ENTITY_DELETED" # e.g. PROPERTY_DELETED
+    ENTITY_STATUS_CHANGED = "ENTITY_STATUS_CHANGED" # e.g. PROPERTY_STATUS_CHANGED
+
+    # Specific examples if generic ENTITY_* is not enough
+    # PAYMENT_SUCCESS = "PAYMENT_SUCCESS" (Covered by PAYMENT_SUCCESSFUL)
+    # PAYMENT_FAILURE = "PAYMENT_FAILURE" (Covered by PAYMENT_FAILED)
+    # NOTIFICATION_SCHEDULED = "NOTIFICATION_SCHEDULED"
+    # NOTIFICATION_SENT = "NOTIFICATION_SENT"
+    # NOTIFICATION_DELIVERY_UPDATE = "NOTIFICATION_DELIVERY_UPDATE" # e.g. delivered, failed
+
+    # Security & System
+    SECURITY_ALERT = "SECURITY_ALERT" # e.g. multiple failed login attempts, suspicious activity
+    CONFIGURATION_CHANGE = "CONFIGURATION_CHANGE" # e.g. Landlord settings, system settings by admin
+    SYSTEM_ERROR = "SYSTEM_ERROR" # Unexpected application error
+    ADMIN_ACTION = "ADMIN_ACTION" # For actions performed by an admin not covered by other specific events
+
+    OTHER = "OTHER" # Fallback for unclassified events
