@@ -36,6 +36,8 @@ class Property:
                  address_line_1: str, # Street address or plot number
                  city: str, # Major town/city, e.g., Nairobi, Mombasa
                  county: str, # Indexed, e.g., Nairobi County
+                 building_name: Optional[str] = None, # Name of the building or complex
+                 unit_name: Optional[str] = None, # Descriptive name for the unit
                  estate_neighborhood: Optional[str] = None, # Indexed, e.g., Kilimani, Nyali
                  ward: Optional[str] = None, # Optional, Indexed
                  sub_county: Optional[str] = None, # Optional, Indexed
@@ -63,6 +65,8 @@ class Property:
         self.ward = ward # E.g., Parklands/Highridge
         self.estate_neighborhood = estate_neighborhood # E.g., Lavington
         self.postal_code = postal_code
+         self.building_name = building_name
+         self.unit_name = unit_name
 
         self.property_type = property_type
         self.num_bedrooms = num_bedrooms
