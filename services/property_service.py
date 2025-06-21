@@ -41,35 +41,40 @@ class PropertyService:
         """
         return Property.query.get(property_id)
 
-    def update_property(self, property_id: int, update_data: Dict[str, Any]) -> Optional[Property]:
+    def get_property_by_id_for_landlord(self, property_id: int, landlord_id: int) -> Optional[Property]:
         """
-        Updates an existing property.
+        Retrieves a property by its ID, ensuring it belongs to the specified landlord.
         """
-        property_to_update = self.get_property_by_id(property_id)
-        if property_to_update:
-            prepared_data = self._prepare_property_data(update_data)
-            # If address fields change, geocoding should be re-triggered.
-            for key, value in prepared_data.items():
-                if hasattr(property_to_update, key):
-                    setattr(property_to_update, key, value)
-            db.session.commit()
-            return property_to_update
-        return None
+        return Property.query.filter_by(property_id=property_id, landlord_id=landlord_id).first()
 
-    def delete_property(self, property_id: int) -> bool:
+    def update_property(self, property_obj: Property, update_data: Dict[str, Any]) -> Property:
         """
-        Deletes a property by its ID.
-        TODO: Consider implications like active leases before deleting.
+        Updates an existing property object.
+        Assumes ownership check has been done by the caller.
         """
-        property_to_delete = self.get_property_by_id(property_id)
-        if property_to_delete:
-            # Add checks here: e.g., if property has active leases, prevent deletion or handle accordingly.
-            # if property_to_delete.leases.filter_by(status='ACTIVE').count() > 0: # Example check
-            #     raise ValueError("Cannot delete property with active leases.")
-            db.session.delete(property_to_delete)
-            db.session.commit()
-            return True
-        return False
+        prepared_data = self._prepare_property_data(update_data)
+        for key, value in prepared_data.items():
+            if hasattr(property_obj, key): # Check if the attribute exists on the model
+                setattr(property_obj, key, value)
+        db.session.add(property_obj) # Add to session in case it's detached or to track changes
+        db.session.commit()
+        return property_obj
+
+    def delete_property(self, property_obj: Property) -> bool:
+        """
+        Deletes a property object.
+        Assumes ownership check and lease checks (if any) have been done by the caller.
+        TODO: Consider implications like active leases before deleting - this check should be in the route or a pre-delete service method.
+        """
+        # Add checks here: e.g., if property has active leases, prevent deletion or handle accordingly.
+        # from models.lease import Lease, LeaseStatusType # Import inside or at top
+        # active_leases = Lease.query.filter_by(property_id=property_obj.property_id, status=LeaseStatusType.ACTIVE).count()
+        # if active_leases > 0:
+        #     raise ValueError("Cannot delete property with active leases.")
+
+        db.session.delete(property_obj)
+        db.session.commit()
+        return True # Should not return False if object must exist to be passed here. Raise error if not found before calling.
 
     def get_properties_by_landlord(self, landlord_id: int, page: int = 1, per_page: int = 10) -> (List[Property], int):
         """
@@ -133,7 +138,41 @@ class PropertyService:
         return self.create_property(data)
 
     def update_property_record(self, property_id: int, **data) -> Optional[Property]:
-        return self.update_property(property_id, data)
+        # This alias might need rethinking if update_property now expects an object
+        # For now, let's assume it's for direct data updates if property_id is primary way to find.
+        # However, the main update_property now takes an object.
+        # This alias is likely from an older version of the service.
+        # For consistency, routes should fetch the object, check ownership, then pass object to update_property.
+        # So, this specific alias might become less relevant or need to replicate that fetch logic.
+        # For now, I will comment it out as it conflicts with the refactored update_property.
+        # return self.update_property(property_id, data)
+        pass
+
+    def add_photo_urls_to_property(self, property_obj: Property, new_photo_urls: List[str]) -> Property:
+        """
+        Adds new photo URLs to a property's photos_urls list.
+        Assumes ownership check has been done by the caller.
+        """
+        if not isinstance(new_photo_urls, list):
+            raise ValueError("new_photo_urls must be a list.")
+
+        # Ensure photos_urls is initialized as a list
+        if property_obj.photos_urls is None:
+            property_obj.photos_urls = []
+
+        for url in new_photo_urls:
+            if isinstance(url, str) and url not in property_obj.photos_urls:
+                property_obj.photos_urls.append(url)
+
+        # Important for JSON field changes to be detected by SQLAlchemy
+        if db.session.is_modified(property_obj):
+             db.session.add(property_obj) # Re-add if modified to ensure flush captures JSON change
+        else: # If only the list content changed but not the list object itself, flag manually
+            from sqlalchemy.orm.attributes import flag_modified
+            flag_modified(property_obj, "photos_urls")
+
+        db.session.commit()
+        return property_obj
 
 
 # Example Usage (would be done in a Flask context with app and db initialized)
