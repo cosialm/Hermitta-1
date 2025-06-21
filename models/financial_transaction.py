@@ -1,13 +1,14 @@
-from enum import Enum
+import enum
 from datetime import datetime, date
-from typing import Optional
+from typing import Optional # Keep for type hinting
 from decimal import Decimal
+from hermitta_app import db # Import db instance
 
-class FinancialTransactionType(Enum): # Should be consistent with UserFinancialCategory
+class FinancialTransactionType(enum.Enum): # Should be consistent with UserFinancialCategory
     INCOME = "INCOME"
     EXPENSE = "EXPENSE"
 
-class RecurrenceFrequency(Enum):
+class RecurrenceFrequency(enum.Enum):
     DAILY = "DAILY"
     WEEKLY = "WEEKLY"
     MONTHLY = "MONTHLY"
@@ -17,90 +18,81 @@ class RecurrenceFrequency(Enum):
     EVERY_TWO_MONTHS = "EVERY_TWO_MONTHS"
     # Add more as needed
 
-class FinancialTransaction:
-    def __init__(self,
-                 transaction_id: int,
-                 landlord_id: int, # Foreign Key to User
-                 type: FinancialTransactionType, # Automatically set based on category_id.type if linked
-                 category_id: int, # Foreign Key to UserFinancialCategory
-                 description: str,
-                 amount: Decimal,
-                 transaction_date: date, # Date the transaction occurred or was recorded
-                 property_id: Optional[int] = None, # FK to Property
-                 lease_id: Optional[int] = None,    # FK to Lease
-                 related_payment_id: Optional[int] = None, # FK to Payment (e.g. if this is logging a rent payment)
-                 maintenance_request_id: Optional[int] = None, # FK to MaintenanceRequest (for expenses)
-                 document_id: Optional[int] = None, # FK to Document (for receipt/invoice)
-                 vendor_name: Optional[str] = None, # For expenses, if not linked to a Vendor User
-                 sub_category: Optional[str] = None, # User-defined further categorization, e.g., "Plumbing" under "Repairs"
+class FinancialTransaction(db.Model):
+    __tablename__ = 'financial_transactions'
 
-                 # Recurrence fields
-                 is_recurring: bool = False,
-                 recurrence_frequency: Optional[RecurrenceFrequency] = None,
-                 recurrence_end_date: Optional[date] = None,
-                 next_due_date: Optional[date] = None, # System managed: next date this recurring tx is expected
-                 parent_recurring_transaction_id: Optional[int] = None, # FK to self, if this is an instance of a recurring tx template
+    transaction_id = db.Column(db.Integer, primary_key=True)
+    landlord_id = db.Column(db.Integer, db.ForeignKey('users.user_id'), nullable=False, index=True)
 
-                 is_tax_deductible_candidate: bool = False, # Landlord marks this for their own tracking
-                 notes: Optional[str] = None, # General notes about the transaction
+    type = db.Column(db.Enum(FinancialTransactionType), nullable=False)
+    # TODO: category_id will be FK to UserFinancialCategory.user_financial_category_id when that model is defined
+    category_id = db.Column(db.Integer, nullable=False, index=True)
 
-                 created_at: datetime = datetime.utcnow(),
-                 updated_at: datetime = datetime.utcnow()):
+    description = db.Column(db.String(255), nullable=False)
+    amount = db.Column(db.Numeric(12, 2), nullable=False) # Max 9,999,999,999.99. Always positive.
+    transaction_date = db.Column(db.Date, nullable=False, index=True)
 
-        self.transaction_id = transaction_id
-        self.landlord_id = landlord_id
-        self.type = type # This should ideally align with the type of the linked category_id
-        self.category_id = category_id # FK to UserFinancialCategory
-        self.description = description
-        self.amount = amount # Always positive; 'type' determines if it's income or expense
-        self.transaction_date = transaction_date
+    property_id = db.Column(db.Integer, db.ForeignKey('properties.property_id'), nullable=True, index=True)
+    lease_id = db.Column(db.Integer, db.ForeignKey('leases.lease_id'), nullable=True, index=True)
 
-        self.property_id = property_id
-        self.lease_id = lease_id
-        self.related_payment_id = related_payment_id
-        self.maintenance_request_id = maintenance_request_id
-        self.document_id = document_id # Link to an uploaded receipt/invoice in Document model
-        self.vendor_name = vendor_name
-        self.sub_category = sub_category
+    # TODO: related_payment_id will be FK to Payment.payment_id (if Payment model is distinct or part of this)
+    related_payment_id = db.Column(db.Integer, nullable=True, index=True)
+    # TODO: maintenance_request_id will be FK to MaintenanceRequest.request_id
+    maintenance_request_id = db.Column(db.Integer, nullable=True, index=True)
+    # TODO: document_id will be FK to Document.document_id
+    document_id = db.Column(db.Integer, nullable=True, index=True)
 
-        self.is_recurring = is_recurring
-        self.recurrence_frequency = recurrence_frequency
-        self.recurrence_end_date = recurrence_end_date
-        self.next_due_date = next_due_date # For the master recurring transaction record
-        self.parent_recurring_transaction_id = parent_recurring_transaction_id # Links instances to the master
+    vendor_name = db.Column(db.String(100), nullable=True) # For expenses, if not linked to a Vendor User
+    sub_category = db.Column(db.String(100), nullable=True)
 
-        self.is_tax_deductible_candidate = is_tax_deductible_candidate
-        self.notes = notes
+    # Recurrence fields
+    is_recurring = db.Column(db.Boolean, default=False, nullable=False)
+    recurrence_frequency = db.Column(db.Enum(RecurrenceFrequency), nullable=True)
+    recurrence_end_date = db.Column(db.Date, nullable=True)
+    next_due_date = db.Column(db.Date, nullable=True, index=True) # For the master recurring transaction record
 
-        self.created_at = created_at
-        self.updated_at = updated_at
+    parent_recurring_transaction_id = db.Column(db.Integer, db.ForeignKey('financial_transactions.transaction_id'), nullable=True)
 
-# Example Usage:
-# # Master recurring expense template (e.g., monthly internet bill for a property)
-# master_internet_bill = FinancialTransaction(
-#     transaction_id=100, landlord_id=10, type=FinancialTransactionType.EXPENSE, category_id=5, # Cat 5 = "Utilities"
-#     description="Property XYZ Internet Bill (Safaricom Fiber)", amount=Decimal("5000.00"),
-#     transaction_date=date(2024,1,10), # Start date of recurrence or first instance
-#     property_id=101, is_recurring=True, recurrence_frequency=RecurrenceFrequency.MONTHLY,
-#     next_due_date=date(2024,2,10) # System would update this
-# )
+    is_tax_deductible_candidate = db.Column(db.Boolean, default=False, nullable=False)
+    notes = db.Column(db.Text, nullable=True)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # Relationships
+    landlord = db.relationship('User', backref=db.backref('financial_transactions', lazy='dynamic'))
+    property = db.relationship('Property', backref=db.backref('financial_transactions', lazy='dynamic'))
+    lease = db.relationship('Lease', backref=db.backref('financial_transactions', lazy='dynamic'))
+
+    # Self-referential relationship for recurring transactions
+    child_transactions = db.relationship('FinancialTransaction',
+                                         backref=db.backref('parent_transaction', remote_side=[transaction_id]),
+                                         lazy='dynamic')
+
+    # TODO: Add relationships for category, related_payment, maintenance_request, document when those models are converted.
+
+    def __repr__(self):
+        return f"<FinancialTransaction {self.transaction_id}: {self.description} ({self.type.value} {self.amount})>"
+
+# Example Usage (would be done via db.session)
+# master_bill_data = {
+#     "landlord_id": 1, "type": FinancialTransactionType.EXPENSE, "category_id": 5,
+#     "description": "Property XYZ Internet Bill (Safaricom Fiber)", "amount": Decimal("5000.00"),
+#     "transaction_date": date(2024,1,10), "property_id": 1,
+#     "is_recurring": True, "recurrence_frequency": RecurrenceFrequency.MONTHLY,
+#     "next_due_date": date(2024,2,10)
+# }
+# master_bill = FinancialTransaction(**master_bill_data)
+# # db.session.add(master_bill)
+# # db.session.commit() # to get master_bill.transaction_id
 #
-# # An actual instance of the above recurring bill for February
-# feb_internet_bill = FinancialTransaction(
-#     transaction_id=101, landlord_id=10, type=FinancialTransactionType.EXPENSE, category_id=5,
-#     description="Property XYZ Internet Bill (Safaricom Fiber) - Feb 2024", amount=Decimal("5000.00"),
-#     transaction_date=date(2024,2,10), property_id=101,
-#     parent_recurring_transaction_id=master_internet_bill.transaction_id,
-#     document_id=201 # Link to the uploaded Safaricom bill PDF for Feb
-# )
-#
-# # One-off repair expense
-# plumbing_repair = FinancialTransaction(
-#     transaction_id=102, landlord_id=10, type=FinancialTransactionType.EXPENSE, category_id=3, # Cat 3 = "Repairs"
-#     description="Fix leaking kitchen tap - Unit A5", amount=Decimal("1500.00"),
-#     transaction_date=date(2024,2,15), property_id=102, lease_id=50, maintenance_request_id=77,
-#     vendor_name="Kamau Plumbers", is_tax_deductible_candidate=True
-# )
-#
-# print(master_internet_bill.description, master_internet_bill.next_due_date)
-# print(feb_internet_bill.parent_recurring_transaction_id)
+# feb_bill_data = {
+#     "landlord_id": 1, "type": FinancialTransactionType.EXPENSE, "category_id": 5,
+#     "description": "Property XYZ Internet Bill (Safaricom Fiber) - Feb 2024", "amount": Decimal("5000.00"),
+#     "transaction_date": date(2024,2,10), "property_id": 1,
+#     # "parent_recurring_transaction_id": master_bill.transaction_id, # after commit
+#     "document_id": 201
+# }
+# feb_bill = FinancialTransaction(**feb_bill_data)
+# # db.session.add(feb_bill)
+# # db.session.commit()

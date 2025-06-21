@@ -1,14 +1,16 @@
 from typing import List, Optional, Dict, Any
 from datetime import datetime, date
 from decimal import Decimal
-from models.lease import Lease, LeaseStatusType, LeaseSigningStatus # Assuming these enums are in models.lease
+from hermitta_app import db # Import db instance
+from models.lease import Lease, LeaseStatusType, LeaseSigningStatus # Import SQLAlchemy model
+from models.user import User # Needed for type checking landlord/tenant etc.
+from models.property import Property # Needed for type checking property
 
 class LeaseService:
-    def __init__(self):
-        self.leases: List[Lease] = []
-        self._next_id: int = 1
 
-    def _ensure_decimal(self, value: Any, field_name: str) -> Decimal:
+    def _ensure_decimal(self, value: Any, field_name: str) -> Optional[Decimal]:
+        if value is None: # Allow optional Decimal fields to be None
+            return None
         if not isinstance(value, Decimal):
             try:
                 return Decimal(str(value))
@@ -16,279 +18,283 @@ class LeaseService:
                 raise ValueError(f"Invalid value for Decimal field '{field_name}': {value} - {e}")
         return value
 
-    def _ensure_date(self, value: Any, field_name: str) -> date:
+    def _ensure_date(self, value: Any, field_name: str) -> Optional[date]:
+        if value is None: # Allow optional Date fields to be None
+            return None
         if isinstance(value, date):
             return value
-        if isinstance(value, datetime):
+        if isinstance(value, datetime): # If datetime, convert to date
             return value.date()
         if isinstance(value, str):
             try:
-                return date.fromisoformat(value)
+                return date.fromisoformat(value) # Expects YYYY-MM-DD
             except ValueError:
                 raise ValueError(f"Invalid date string for '{field_name}': {value}. Use YYYY-MM-DD format.")
         raise ValueError(f"Invalid type for date field '{field_name}': {type(value)}. Expected date or YYYY-MM-DD string.")
 
-
-    def create_lease(self, lease_data: Dict[str, Any]) -> Lease:
+    def _prepare_lease_data(self, lease_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Creates a new lease and stores it in memory.
-        Ensures all required fields for Lease model are present or defaulted.
-        Handles type conversions for enums, dates, and Decimals.
+        Prepares lease data for creation or update by converting string representations
+        of enums, dates, and Decimals to their appropriate types.
         """
-        new_lease_id = self._next_id
-
-        processed_data = lease_data.copy()
-        processed_data["lease_id"] = new_lease_id
+        prepared_data = lease_data.copy()
 
         # Handle enums
-        if 'status' in processed_data:
-            if isinstance(processed_data['status'], str):
-                try:
-                    processed_data['status'] = LeaseStatusType[processed_data['status'].upper()]
-                except KeyError:
-                    raise ValueError(f"Invalid status string: {processed_data['status']}")
-        else:
-            processed_data['status'] = LeaseStatusType.DRAFT
+        if 'status' in prepared_data and isinstance(prepared_data['status'], str):
+            try:
+                prepared_data['status'] = LeaseStatusType[prepared_data['status'].upper()]
+            except KeyError:
+                raise ValueError(f"Invalid status string: {prepared_data['status']}")
 
-        if 'signing_status' in processed_data:
-            if isinstance(processed_data['signing_status'], str):
-                try:
-                    processed_data['signing_status'] = LeaseSigningStatus[processed_data['signing_status'].upper()]
-                except KeyError:
-                    raise ValueError(f"Invalid signing_status string: {processed_data['signing_status']}")
-        else:
-            processed_data['signing_status'] = LeaseSigningStatus.NOT_STARTED
+        if 'signing_status' in prepared_data and isinstance(prepared_data['signing_status'], str):
+            try:
+                prepared_data['signing_status'] = LeaseSigningStatus[prepared_data['signing_status'].upper()]
+            except KeyError:
+                raise ValueError(f"Invalid signing_status string: {prepared_data['signing_status']}")
 
         # Handle dates
-        date_fields = ['start_date', 'end_date', 'move_in_date']
+        date_fields = [
+            'start_date', 'end_date', 'move_in_date', 'rent_start_date',
+            'lease_document_uploaded_at', # This is DateTime in model, but _ensure_date handles it if only date part given
+            'renewal_notice_reminder_date', 'termination_notice_reminder_date'
+        ]
         for field in date_fields:
-            if field in processed_data and processed_data[field] is not None:
-                processed_data[field] = self._ensure_date(processed_data[field], field)
-            # Removed explicit check for missing required date fields here,
-            # Lease model's __init__ will handle it.
+            if field in prepared_data: # Only process if field is present
+                if field == 'lease_document_uploaded_at' and prepared_data[field] is not None: # This is DateTime
+                    if isinstance(prepared_data[field], str):
+                        try:
+                            prepared_data[field] = datetime.fromisoformat(prepared_data[field].replace('Z', '+00:00'))
+                        except ValueError:
+                             raise ValueError(f"Invalid datetime string for '{field}': {prepared_data[field]}. Use ISO format.")
+                    elif not isinstance(prepared_data[field], datetime):
+                        raise ValueError(f"Invalid type for datetime field '{field}': {type(prepared_data[field])}")
+                else: # Process as Date
+                    prepared_data[field] = self._ensure_date(prepared_data[field], field)
 
         # Handle Decimals
         decimal_fields = ['rent_amount', 'security_deposit']
         for field in decimal_fields:
-            if field in processed_data and processed_data[field] is not None:
-                processed_data[field] = self._ensure_decimal(processed_data[field], field)
-            # Removed explicit check for missing required Decimal fields here,
-            # Lease model's __init__ will handle it.
+            if field in prepared_data: # Only process if field is present
+                 prepared_data[field] = self._ensure_decimal(prepared_data[field], field)
 
-        # Ensure all required fields for Lease model are present after processing
-        # The Lease model's __init__ will ultimately validate this.
-        # created_at, updated_at are defaulted by the Lease model.
-
-        # Remove fields not expected by Lease model before instantiation
+        # Remove fields not part of the Lease model if they were passed (e.g. from old version)
         fields_to_remove_if_present = ['currency', 'payment_terms']
         for field_key in fields_to_remove_if_present:
-            if field_key in processed_data:
-                del processed_data[field_key]
+            prepared_data.pop(field_key, None) # Safely remove if exists
 
-        try:
-            lease_instance = Lease(**processed_data)
-        except TypeError as e:
-            raise ValueError(f"Missing required fields or incorrect data for Lease creation: {e}")
-        except Exception as e: # Catch any other model validation errors
-            raise ValueError(f"Error during Lease instantiation: {e}")
+        return prepared_data
 
-        self.leases.append(lease_instance)
-        self._next_id += 1
-        return lease_instance
-
-    def get_lease(self, lease_id: int) -> Optional[Lease]:
+    def create_lease(self, lease_data: Dict[str, Any]) -> Lease:
         """
-        Retrieves a lease by its ID from the in-memory store.
+        Creates a new lease.
         """
-        for lease in self.leases:
-            if lease.lease_id == lease_id:
-                return lease
-        return None
+        prepared_data = self._prepare_lease_data(lease_data)
+
+        # Basic validation for FK existence (DB will also enforce this)
+        # These checks can be made more robust or rely on DB constraints for final validation
+        if not User.query.get(prepared_data.get('landlord_id')):
+            raise ValueError(f"Landlord user with ID {prepared_data.get('landlord_id')} not found.")
+        if prepared_data.get('tenant_id') and not User.query.get(prepared_data.get('tenant_id')):
+            raise ValueError(f"Tenant user with ID {prepared_data.get('tenant_id')} not found.")
+        if not Property.query.get(prepared_data.get('property_id')):
+            raise ValueError(f"Property with ID {prepared_data.get('property_id')} not found.")
+        if prepared_data.get('lease_document_uploaded_by_user_id') and \
+           not User.query.get(prepared_data.get('lease_document_uploaded_by_user_id')):
+            raise ValueError(f"Uploader user with ID {prepared_data.get('lease_document_uploaded_by_user_id')} not found.")
+
+
+        new_lease = Lease(**prepared_data)
+        db.session.add(new_lease)
+        db.session.commit()
+        return new_lease
+
+    def get_lease_by_id(self, lease_id: int) -> Optional[Lease]:
+        return Lease.query.get(lease_id)
 
     def update_lease(self, lease_id: int, update_data: Dict[str, Any]) -> Optional[Lease]:
-        """
-        Updates an existing lease in the in-memory store.
-        """
-        lease_to_update = self.get_lease(lease_id)
-        if lease_to_update:
-            processed_update_data = update_data.copy()
+        lease_to_update = self.get_lease_by_id(lease_id)
+        if not lease_to_update:
+            return None
 
-            # Handle enums
-            if 'status' in processed_update_data and isinstance(processed_update_data['status'], str):
-                try:
-                    processed_update_data['status'] = LeaseStatusType[processed_update_data['status'].upper()]
-                except KeyError:
-                    raise ValueError(f"Invalid status string for update: {processed_update_data['status']}")
+        prepared_data = self._prepare_lease_data(update_data)
+        for key, value in prepared_data.items():
+            if hasattr(lease_to_update, key): # Check if attribute exists on model
+                setattr(lease_to_update, key, value)
 
-            if 'signing_status' in processed_update_data and isinstance(processed_update_data['signing_status'], str):
-                try:
-                    processed_update_data['signing_status'] = LeaseSigningStatus[processed_update_data['signing_status'].upper()]
-                except KeyError:
-                    raise ValueError(f"Invalid signing_status string for update: {processed_update_data['signing_status']}")
-
-            # Handle dates
-            date_fields = ['start_date', 'end_date', 'move_in_date']
-            for field in date_fields:
-                if field in processed_update_data and processed_update_data[field] is not None:
-                    processed_update_data[field] = self._ensure_date(processed_update_data[field], field)
-
-            # Handle Decimals
-            decimal_fields = ['rent_amount', 'security_deposit']
-            for field in decimal_fields:
-                if field in processed_update_data and processed_update_data[field] is not None:
-                    processed_update_data[field] = self._ensure_decimal(processed_update_data[field], field)
-
-            # Remove fields not on Lease model before attempting setattr
-            fields_to_remove_if_present_on_update = ['currency', 'payment_terms']
-            for field_key in fields_to_remove_if_present_on_update:
-                if field_key in processed_update_data:
-                    del processed_update_data[field_key]
-
-            for key, value in processed_update_data.items():
-                if hasattr(lease_to_update, key):
-                    setattr(lease_to_update, key, value)
-
-            lease_to_update.updated_at = datetime.utcnow()
-            return lease_to_update
-        return None
+        db.session.commit()
+        return lease_to_update
 
     def delete_lease(self, lease_id: int) -> bool:
-        """
-        Deletes a lease by its ID from the in-memory store.
-        """
-        lease_to_delete = self.get_lease(lease_id)
+        lease_to_delete = self.get_lease_by_id(lease_id)
         if lease_to_delete:
-            self.leases.remove(lease_to_delete)
+            # TODO: Add more robust business logic, e.g., cannot delete an ACTIVE lease.
+            # For now, simple deletion.
+            db.session.delete(lease_to_delete)
+            db.session.commit()
             return True
         return False
 
-    # Dummy methods for compatibility with other test modules if they import LeaseService
-    def get_lease_details_for_payment(self, lease_id: int): # Used in payment_routes tests
-        return self.get_lease(lease_id)
+    def get_leases_for_property(self, property_id: int, page: int = 1, per_page: int = 10) -> (List[Lease], int):
+        query = Lease.query.filter_by(property_id=property_id).order_by(Lease.start_date.desc())
+        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+        return pagination.items, pagination.total
 
-    def create_lease_record(self, **data): # Used in lease_routes tests
-        return self.create_lease(data)
+    def get_leases_for_landlord(self, landlord_id: int, page: int = 1, per_page: int = 10) -> (List[Lease], int):
+        query = Lease.query.filter_by(landlord_id=landlord_id).order_by(Lease.start_date.desc())
+        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+        return pagination.items, pagination.total
 
-    def get_lease_by_id(self, lease_id: int): # Used in lease_routes tests
-        return self.get_lease(lease_id)
+    def get_leases_for_tenant(self, tenant_id: int, page: int = 1, per_page: int = 10) -> (List[Lease], int):
+        query = Lease.query.filter_by(tenant_id=tenant_id).order_by(Lease.start_date.desc())
+        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+        return pagination.items, pagination.total
 
-    def update_lease_details(self, lease_id: int, **data): # Used in lease_routes tests
-        return self.update_lease(lease_id, data)
+    # --- Methods related to e-signature and document management (stubs for now) ---
 
-    def initiate_signing_process(self, lease_id: int, **data): # Used in lease_routes tests
-        # This is a complex process, just a stub here
-        lease = self.get_lease(lease_id)
-        if lease:
+    def initiate_signing_process(self, lease_id: int, signers_data: List[Dict[str, Any]]) -> bool:
+        lease = self.get_lease_by_id(lease_id)
+        if lease and lease.signing_status in [LeaseSigningStatus.NOT_STARTED, LeaseSigningStatus.DRAFT]:
+            # TODO: Actual e-signature provider integration or internal signing logic.
+            # Validate lease.lease_document_content_final exists.
+            lease.signature_requests = signers_data # This should be structured data
             lease.signing_status = LeaseSigningStatus.SENT_FOR_SIGNATURE
-            lease.updated_at = datetime.utcnow()
+            db.session.commit()
+            # TODO: Trigger notifications to signers.
             return True
         return False
 
-    def get_signing_status_for_lease(self, lease_id: int): # Used in lease_routes tests
-        lease = self.get_lease(lease_id)
+    def get_signing_status_for_lease(self, lease_id: int) -> Optional[Dict[str, Any]]:
+        lease = self.get_lease_by_id(lease_id)
         if lease:
-            return {"signing_status": lease.signing_status.value, "signature_requests": []} # Dummy response
+            return {
+                "lease_id": lease.lease_id,
+                "signing_status": lease.signing_status.value,
+                "signature_requests": lease.signature_requests or [] # Ensure it's a list
+            }
         return None
 
-    def update_signature_status_from_webhook(self, **data): # Used in lease_routes tests
-        # Complex logic, stub
+    def update_signature_status_from_webhook(self, lease_id: int, signer_identifier: str, event_type: str) -> bool:
+        # Placeholder: This is a complex method that would parse webhook payload
+        # and update Lease.signature_requests and Lease.signing_status accordingly.
+        # Security (webhook signature verification) is critical here.
+        lease = self.get_lease_by_id(lease_id)
+        if not lease or not lease.signature_requests:
+            return False
+
+        # Example logic (very simplified)
+        all_signed = True
+        for req in lease.signature_requests:
+            # Assuming signer_identifier matches one of the signers (e.g., email)
+            if req.get('email') == signer_identifier: # Or some other unique ID for the signer
+                if event_type.upper() == 'SIGNED':
+                    req['status'] = 'SIGNED'
+                    req['signed_at'] = datetime.utcnow().isoformat()
+                elif event_type.upper() == 'DECLINED':
+                    req['status'] = 'DECLINED'
+                    lease.signing_status = LeaseSigningStatus.DECLINED
+                    all_signed = False
+                    break
+            if req.get('status') != 'SIGNED':
+                all_signed = False
+
+        if all_signed and lease.signing_status != LeaseSigningStatus.DECLINED:
+            lease.signing_status = LeaseSigningStatus.FULLY_SIGNED_SYSTEM # Or provider specific
+
+        db.session.commit()
         return True
 
-    def record_in_system_signature(self, lease_id: int, **data): # Used in lease_routes tests
-        lease = self.get_lease(lease_id)
+    def record_in_system_signature(self, lease_id: int, user_id: int, typed_name: str) -> bool:
+        # Placeholder for in-system "typed" signature.
+        # Would involve updating signature_requests and checking if all parties signed.
+        lease = self.get_lease_by_id(lease_id)
         if lease:
-            # Simplified: assume one signer, sets to fully signed
+            # Find the user in signature_requests and update their status.
+            # For this stub, assume it leads to full signature.
             lease.signing_status = LeaseSigningStatus.FULLY_SIGNED_SYSTEM
-            lease.updated_at = datetime.utcnow()
+            db.session.commit()
             return True
         return False
 
-    def link_signed_document(self, lease_id: int, document_id: int): # Used in lease_routes tests
-        lease = self.get_lease(lease_id)
+    def link_signed_document(self, lease_id: int, document_id: int, uploaded_by_user_id: int) -> bool:
+        # Assumes document_id refers to an entry in a 'documents' table.
+        lease = self.get_lease_by_id(lease_id)
         if lease:
             lease.signed_lease_document_id = document_id
             lease.signing_status = LeaseSigningStatus.FULLY_SIGNED_UPLOADED
-            lease.updated_at = datetime.utcnow()
+            # lease.lease_document_uploaded_by_user_id = uploaded_by_user_id # Or keep original uploader
+            db.session.commit()
             return True
         return False
 
-    def update_draft_document_link(self, lease_id: int, document_id: int): # Used in lease_routes tests
-        lease = self.get_lease(lease_id)
+    def update_draft_document_link(self, lease_id: int, document_url: str, version: int, uploaded_by_user_id: int) -> bool:
+        lease = self.get_lease_by_id(lease_id)
         if lease:
-            lease.lease_document_url = f"http://example.com/docs/{document_id}" # Example
-            lease.updated_at = datetime.utcnow()
+            lease.lease_document_url = document_url
+            lease.lease_document_version = version
+            lease.lease_document_uploaded_at = datetime.utcnow()
+            lease.lease_document_uploaded_by_user_id = uploaded_by_user_id
+            db.session.commit()
             return True
         return False
 
-    def get_draft_document_details(self, lease_id: int): # Used in lease_routes tests
-        lease = self.get_lease(lease_id)
-        if lease:
-            return {"url": lease.lease_document_url, "name": "Lease Draft"}
+    def get_draft_document_details(self, lease_id: int) -> Optional[Dict[str, Any]]:
+        lease = self.get_lease_by_id(lease_id)
+        if lease and lease.lease_document_url:
+            return {"url": lease.lease_document_url,
+                    "version": lease.lease_document_version,
+                    "name": "Lease Draft"} # Name could be more dynamic
         return None
 
-# Example Usage (not part of the class, for illustration)
-if __name__ == '__main__':
-    service = LeaseService()
-    sample_data = {
-        "property_id": 1,
-        "tenant_id": 1,
-        "landlord_id": 101,
-        "start_date": "2024-01-01",
-        "end_date": "2024-12-31",
-        "rent_amount": "1500.50",
-        "security_deposit": "3000.00",
-        "currency": "KES",
-        "payment_terms": "Monthly",
-        "status": "ACTIVE", # String, will be converted
-        "signing_status": "FULLY_SIGNED_SYSTEM" # String
-    }
-    try:
-        lease1 = service.create_lease(sample_data)
-        print(f"Created Lease 1: ID {lease1.lease_id}, Status {lease1.status.value}, Rent {lease1.rent_amount}")
-    except ValueError as e:
-        print(f"Error creating lease: {e}")
+    # Aliases for route test compatibility
+    def create_lease_record(self, **data) -> Lease:
+        return self.create_lease(data)
 
-    retrieved_lease1 = service.get_lease(1)
-    if retrieved_lease1:
-        print(f"Retrieved Lease 1: Start Date {retrieved_lease1.start_date}")
+    def update_lease_details(self, lease_id: int, **data) -> Optional[Lease]:
+        return self.update_lease(lease_id, data)
 
-    update_data_for_lease1 = {"rent_amount": "1600.00", "status": "EXPIRED"}
-    try:
-        updated_lease1 = service.update_lease(1, update_data_for_lease1)
-        if updated_lease1:
-            print(f"Updated Lease 1: Rent {updated_lease1.rent_amount}, Status {updated_lease1.status.value}, Updated At {updated_lease1.updated_at}")
-    except ValueError as e:
-        print(f"Error updating lease: {e}")
-
-    service.delete_lease(1)
-    print(f"Leases after deleting lease 1: {[l.lease_id for l in service.leases]}")
-
-    # Test with missing required field
-    missing_data = {"property_id": 2, "landlord_id": 102}
-    try:
-        service.create_lease(missing_data)
-    except ValueError as e:
-        print(f"Error creating lease with missing data: {e}")
-
-    # Test with invalid enum string
-    invalid_enum_data = {**sample_data, "status": "INVALID_STATUS_STRING"}
-    try:
-        service.create_lease(invalid_enum_data)
-    except ValueError as e:
-        print(f"Error creating lease with invalid enum: {e}")
-
-    # Test with invalid date string
-    invalid_date_data = {**sample_data, "start_date": "2024/01/01"} # wrong format
-    try:
-        service.create_lease(invalid_date_data)
-    except ValueError as e:
-        print(f"Error creating lease with invalid date: {e}")
-
-    # Test with invalid decimal value
-    invalid_decimal_data = {**sample_data, "rent_amount": "abc.xyz"}
-    try:
-        service.create_lease(invalid_decimal_data)
-    except ValueError as e:
-        print(f"Error creating lease with invalid decimal: {e}")
-
-    print("Lease service stub testing complete.")
+# Example Usage (would be done in a Flask context)
+# if __name__ == '__main__':
+#     from hermitta_app import create_app
+#     # Assuming UserService and PropertyService are refactored
+#     # from services.user_service import UserService
+#     # from services.property_service import PropertyService
+#     app = create_app('dev')
+#     with app.app_context():
+#         lease_service = LeaseService()
+#         # landlord = UserService().get_user_by_id(1) # Assume user 1 is landlord
+#         # tenant = UserService().get_user_by_id(2) # Assume user 2 is tenant
+#         # property_ = PropertyService().get_property_by_id(1) # Assume property 1 exists
+#         # if landlord and tenant and property_:
+#         #     lease_data = {
+#         #         "property_id": property_.property_id,
+#         #         "landlord_id": landlord.user_id,
+#         #         "tenant_id": tenant.user_id,
+#         #         "start_date": "2024-08-01",
+#         #         "end_date": "2025-07-31",
+#         #         "rent_amount": Decimal("25000.00"),
+#         #         "rent_due_day": 1,
+#         #         "move_in_date": "2024-08-01",
+#         #         "status": LeaseStatusType.DRAFT,
+#         #         "signing_status": LeaseSigningStatus.NOT_STARTED,
+#         #         "security_deposit": Decimal("50000.00")
+#         #     }
+#         #     try:
+#         #         new_lease = lease_service.create_lease(lease_data)
+#         #         print(f"Created Lease ID: {new_lease.lease_id}, Status: {new_lease.status.value}")
+#         #
+#         #         retrieved_l = lease_service.get_lease_by_id(new_lease.lease_id)
+#         #         if retrieved_l:
+#         #             print(f"Retrieved Lease Rent: {retrieved_l.rent_amount}")
+#         #             lease_service.update_lease(new_lease.lease_id, {"notes": "Updated with some notes."})
+#         #             updated_l = lease_service.get_lease_by_id(new_lease.lease_id)
+#         #             print(f"Updated Lease Notes: {updated_l.notes}")
+#         #
+#         #         # lease_service.delete_lease(new_lease.lease_id)
+#         #         # print(f"Lease {new_lease.lease_id} deleted: {lease_service.get_lease_by_id(new_lease.lease_id) is None}")
+#         #
+#         #     except Exception as e:
+#         #         print(f"Error in LeaseService example: {e}")
+#         #         db.session.rollback()
+#         # else:
+#         #     print("Required landlord, tenant, or property for LeaseService example not found.")
+#         print("LeaseService SQLAlchemy example usage placeholder complete.")
