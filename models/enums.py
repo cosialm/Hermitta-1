@@ -127,6 +127,28 @@ class GatewayEnvironment(enum.Enum):
     PRODUCTION = "PRODUCTION"
     TESTING = "TESTING" # Generic testing if not sandbox/prod
 
+class ReminderRuleEvent(enum.Enum):
+    RENT_DUE_DATE = "RENT_DUE_DATE"
+    LEASE_START_DATE = "LEASE_START_DATE"
+    LEASE_END_DATE = "LEASE_END_DATE"
+    INVOICE_DUE_DATE = "INVOICE_DUE_DATE" # e.g. for utility bills or other charges
+    DOCUMENT_EXPIRY_DATE = "DOCUMENT_EXPIRY_DATE" # e.g. for compliance docs, insurance
+    MAINTENANCE_SCHEDULED_DATE = "MAINTENANCE_SCHEDULED_DATE"
+
+class ReminderRecipientType(enum.Enum):
+    TENANT = "TENANT" # Primary tenant(s) of a lease
+    LANDLORD = "LANDLORD" # The landlord user associated with the rule/property/lease
+    PROPERTY_MANAGER = "PROPERTY_MANAGER" # If a distinct role or assigned staff
+    OTHER_USER = "OTHER_USER" # Specify a particular system user
+    CUSTOM_EMAIL = "CUSTOM_EMAIL" # Send to an email address not tied to a system user
+
+class ReminderTimeUnit(enum.Enum):
+    MINUTES = "MINUTES"
+    HOURS = "HOURS"
+    DAYS = "DAYS"
+    WEEKS = "WEEKS"
+    MONTHS = "MONTHS"
+
 class GatewayTransactionStatus(enum.Enum):
     PENDING = "PENDING"         # Transaction initiated, awaiting confirmation from gateway
     SUCCESSFUL = "SUCCESSFUL"   # Payment confirmed by the gateway
