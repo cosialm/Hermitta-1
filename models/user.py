@@ -1,10 +1,12 @@
-from enum import Enum
+import enum # Use standard enum for SQLAlchemy
 from datetime import datetime, date
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List # Keep for type hinting if needed elsewhere
 from decimal import Decimal
+from hermitta_app import db # Import db instance
 
 # Phase 6: Advanced Integrations & Scalability (with MFA additions)
-class UserRole(Enum):
+# Enums remain the same, but ensure they are standard Python enums
+class UserRole(enum.Enum):
     LANDLORD = "LANDLORD"
     TENANT = "TENANT"
     STAFF = "STAFF"
@@ -12,109 +14,90 @@ class UserRole(Enum):
     ACCOUNTANT = "ACCOUNTANT"
     ADMIN = "ADMIN"
 
-class PreferredLoginMethod(Enum):
+class PreferredLoginMethod(enum.Enum):
     EMAIL = "EMAIL"
     PHONE = "PHONE"
 
-class PreferredLanguage(Enum):
+class PreferredLanguage(enum.Enum):
     EN_KE = "en_KE"
     SW_KE = "sw_KE"
 
 VENDOR_SERVICE_EXAMPLES = ["PLUMBING", "ELECTRICAL", "CLEANING", "SECURITY_SERVICES", "HVAC_REPAIR", "PAINTING"]
 
-class User:
-    def __init__(self,
-                 user_id: int,
-                 email: str,
-                 phone_number: str,
-                 password_hash: str,
-                 first_name: str,
-                 last_name: str,
-                 role: UserRole,
-                 is_phone_verified: bool = False,
-                 phone_verification_otp: Optional[str] = None,
-                 phone_verification_otp_expires_at: Optional[datetime] = None,
-                 kra_pin: Optional[str] = None,
-                 preferred_login_method: PreferredLoginMethod = PreferredLoginMethod.EMAIL,
-                 preferred_language: PreferredLanguage = PreferredLanguage.EN_KE,
-                 last_consent_review_date: Optional[date] = None,
-                 data_processing_consent_details: Optional[Dict[str, Any]] = None,
-                 company_name: Optional[str] = None,
-                 staff_permissions: Optional[Dict[str, Any]] = None,
-                 # Vendor-specific fields
-                 vendor_services_offered: Optional[List[str]] = None,
-                 vendor_rating_average: Optional[Decimal] = None, # Overall average rating score
-                 vendor_total_ratings_count: Optional[int] = 0,  # Total number of ratings received
-                 is_verified_vendor: bool = False,
-                 # MFA Fields:
-                 otp_secret: Optional[str] = None, # Encrypted secret for TOTP
-                 is_mfa_enabled: bool = False, # User has MFA enabled
-                 otp_backup_codes: Optional[List[str]] = None, # List of one-time hashed recovery codes
-                 is_active: bool = True,
-                 created_at: datetime = datetime.utcnow(),
-                 updated_at: datetime = datetime.utcnow()):
+class User(db.Model):
+    __tablename__ = 'users'
 
-        self.user_id = user_id
-        self.email = email
-        self.phone_number = phone_number
-        self.password_hash = password_hash # Must be securely hashed (e.g., Argon2, bcrypt)
-        self.first_name = first_name
-        self.last_name = last_name
-        self.role = role
+    user_id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(120), unique=True, nullable=False, index=True)
+    phone_number = db.Column(db.String(20), unique=True, nullable=False, index=True)
+    password_hash = db.Column(db.String(255), nullable=False) # Increased length for stronger hashes
+    first_name = db.Column(db.String(50), nullable=False)
+    last_name = db.Column(db.String(50), nullable=False)
+    role = db.Column(db.Enum(UserRole), nullable=False, default=UserRole.TENANT)
 
-        self.is_phone_verified = is_phone_verified
-        self.phone_verification_otp = phone_verification_otp # Store hashed if sensitive, or one-time use
-        self.phone_verification_otp_expires_at = phone_verification_otp_expires_at
+    is_phone_verified = db.Column(db.Boolean, default=False, nullable=False)
+    phone_verification_otp = db.Column(db.String(10), nullable=True) # Store hashed if sensitive
+    phone_verification_otp_expires_at = db.Column(db.DateTime, nullable=True)
 
-        if self.role == UserRole.LANDLORD:
-            self.kra_pin = kra_pin
-        else:
-            self.kra_pin = None
+    kra_pin = db.Column(db.String(20), nullable=True, index=True) # Specific to LANDLORD role
 
-        self.preferred_login_method = preferred_login_method
-        self.preferred_language = preferred_language
-        self.last_consent_review_date = last_consent_review_date
-        self.data_processing_consent_details = data_processing_consent_details if data_processing_consent_details is not None else {}
+    preferred_login_method = db.Column(db.Enum(PreferredLoginMethod), default=PreferredLoginMethod.EMAIL, nullable=False)
+    preferred_language = db.Column(db.Enum(PreferredLanguage), default=PreferredLanguage.EN_KE, nullable=False)
 
-        self.company_name = company_name
+    last_consent_review_date = db.Column(db.Date, nullable=True)
+    data_processing_consent_details = db.Column(db.JSON, nullable=True) # Store as JSON
 
-        if self.role == UserRole.STAFF or self.role == UserRole.ACCOUNTANT:
-            self.staff_permissions = staff_permissions if staff_permissions is not None else {}
-        else:
-            self.staff_permissions = {}
+    company_name = db.Column(db.String(100), nullable=True)
+    staff_permissions = db.Column(db.JSON, nullable=True) # Store as JSON, specific to STAFF/ACCOUNTANT
 
-        if self.role == UserRole.VENDOR:
-            self.vendor_services_offered = vendor_services_offered if vendor_services_offered is not None else []
-            self.vendor_rating_average = vendor_rating_average # This will be calculated and updated
-            self.vendor_total_ratings_count = vendor_total_ratings_count if vendor_total_ratings_count is not None else 0
-            self.is_verified_vendor = is_verified_vendor
-        else:
-            self.vendor_services_offered = []
-            self.vendor_rating_average = None
-            self.vendor_total_ratings_count = 0
-            self.is_verified_vendor = False
+    # Vendor-specific fields
+    vendor_services_offered = db.Column(db.JSON, nullable=True) # Store as JSON list of strings
+    vendor_rating_average = db.Column(db.Numeric(3, 2), nullable=True) # e.g., 4.75
+    vendor_total_ratings_count = db.Column(db.Integer, default=0, nullable=True)
+    is_verified_vendor = db.Column(db.Boolean, default=False, nullable=True)
 
-        # MFA details
-        self.otp_secret = otp_secret # Encrypt this before storing
-        self.is_mfa_enabled = is_mfa_enabled
-        self.otp_backup_codes = otp_backup_codes if otp_backup_codes is not None else [] # Store hashed codes
+    # MFA Fields
+    otp_secret = db.Column(db.String(255), nullable=True) # Encrypted secret for TOTP
+    is_mfa_enabled = db.Column(db.Boolean, default=False, nullable=False)
+    otp_backup_codes = db.Column(db.JSON, nullable=True) # Store as JSON list of hashed codes
 
-        self.is_active = is_active
-        self.created_at = created_at
-        self.updated_at = updated_at
+    is_active = db.Column(db.Boolean, default=True, nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # Relationships (will be defined as we convert other models)
+    # properties = db.relationship('Property', backref='landlord', lazy=True, foreign_keys='Property.landlord_id')
+    # leases_as_landlord = db.relationship('Lease', backref='landlord_user', lazy=True, foreign_keys='Lease.landlord_id')
+    # leases_as_tenant = db.relationship('Lease', backref='tenant_user', lazy=True, foreign_keys='Lease.tenant_id')
+    # maintenance_requests_created = db.relationship('MaintenanceRequest', backref='creator', lazy=True, foreign_keys='MaintenanceRequest.created_by_user_id')
+    # maintenance_requests_assigned = db.relationship('MaintenanceRequest', backref='assignee', lazy=True, foreign_keys='MaintenanceRequest.assigned_to_user_id')
+
+
+    # The __init__ method is largely handled by SQLAlchemy's db.Model.
+    # Logic for setting kra_pin based on role, or staff_permissions, etc.,
+    # should be handled in the service layer before creating the User instance,
+    # or via @validates decorators or model event listeners if strictly model behavior.
 
     # Placeholder methods for handling encrypted MFA secret (actual logic elsewhere)
-    def get_otp_secret(self) -> Optional[str]:
-        # TODO: Implement decryption of self.otp_secret
-        return self.otp_secret
+    # def get_otp_secret(self) -> Optional[str]:
+    #     # TODO: Implement decryption of self.otp_secret
+    #     return self.otp_secret
 
-    def set_otp_secret(self, plain_secret: str):
-        # TODO: Implement encryption then set self.otp_secret
-        self.otp_secret = plain_secret # Placeholder
+    # def set_otp_secret(self, plain_secret: str):
+    #     # TODO: Implement encryption then set self.otp_secret
+    #     self.otp_secret = plain_secret # Placeholder
 
-# Example Usage (Phase 6 with MFA):
-# admin_user = User(user_id=5, email="admin@example.com", phone_number="+2547ADMIN000", password_hash="...",
-#                   first_name="Sys", last_name="Admin", role=UserRole.ADMIN,
-#                   is_mfa_enabled=True, otp_secret="encrypted_super_secret",
-#                   otp_backup_codes=["hashed_code1", "hashed_code2"])
-# print(admin_user.role, admin_user.is_mfa_enabled)
+    def __repr__(self):
+        return f"<User {self.user_id}: {self.email} ({self.role.value})>"
+
+# Example Usage (Phase 6 with MFA) - This would now be done via db.session.add()
+# admin_user_data = {
+#     "email": "admin@example.com", "phone_number": "+2547ADMIN000", "password_hash": "hashed_password",
+#     "first_name": "Sys", "last_name": "Admin", "role": UserRole.ADMIN,
+#     "is_mfa_enabled": True, "otp_secret": "encrypted_super_secret", # Service should encrypt
+#     "otp_backup_codes": ["hashed_code1", "hashed_code2"] # Service should hash
+# }
+# admin_user = User(**admin_user_data)
+# # db.session.add(admin_user)
+# # db.session.commit()
+# # print(admin_user.role, admin_user.is_mfa_enabled)

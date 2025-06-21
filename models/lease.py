@@ -1,9 +1,10 @@
-from enum import Enum
+import enum
 from datetime import datetime, date
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any # Keep for type hinting
 from decimal import Decimal
+from hermitta_app import db # Import db instance
 
-class LeaseSigningStatus(Enum): # From Phase 3
+class LeaseSigningStatus(enum.Enum): # From Phase 3
     NOT_STARTED = "NOT_STARTED"
     DRAFT = "DRAFT"
     SENT_FOR_SIGNATURE = "SENT_FOR_SIGNATURE"
@@ -16,7 +17,7 @@ class LeaseSigningStatus(Enum): # From Phase 3
     SUPERSEDED = "SUPERSEDED"
 
 # New Enum for overall Lease Status
-class LeaseStatusType(Enum):
+class LeaseStatusType(enum.Enum):
     DRAFT = "DRAFT"                             # Lease is being prepared, not yet active for signing or occupancy
     PENDING_SIGNATURES = "PENDING_SIGNATURES"   # Sent for signature, or signatures being collected
     ACTIVE_PENDING_MOVE_IN = "ACTIVE_PENDING_MOVE_IN" # Signed, tenant has not yet moved in (start_date might be future)
@@ -28,78 +29,72 @@ class LeaseStatusType(Enum):
     RENEWED = "RENEWED"                         # This specific lease instance has been superseded by a new renewal lease record
     # Note: `signing_status` tracks the e-signature process; `status` tracks overall lifecycle.
 
-class Lease:
-    def __init__(self,
-                 lease_id: int,
-                 property_id: int,
-                 landlord_id: int,
-                 start_date: date,
-                 end_date: date,
-                 rent_amount: Decimal,
-                 rent_due_day: int,
-                 move_in_date: date,
-                 status: LeaseStatusType = LeaseStatusType.DRAFT, # New overall status field
-                 tenant_id: Optional[int] = None,
-                 tenant_national_id: Optional[str] = None,
-                 tenant_name_manual: Optional[str] = None,
-                 tenant_phone_number_manual: Optional[str] = None,
-                 tenant_email_manual: Optional[str] = None,
-                 rent_start_date: Optional[date] = None,
-                 security_deposit: Optional[Decimal] = None,
-                 notes: Optional[str] = None,
-                 lease_document_url: Optional[str] = None,
-                 lease_document_version: int = 1,
-                 lease_document_uploaded_at: Optional[datetime] = None,
-                 lease_document_uploaded_by_user_id: Optional[int] = None,
-                 generated_from_template_id: Optional[int] = None,
-                 lease_document_content_final: Optional[str] = None,
-                 signature_requests: Optional[List[Dict[str, Any]]] = None,
-                 signing_status: LeaseSigningStatus = LeaseSigningStatus.NOT_STARTED,
-                 signed_lease_document_id: Optional[int] = None,
-                 additional_signed_document_ids: Optional[List[int]] = None,
-                 renewal_notice_reminder_date: Optional[date] = None,
-                 termination_notice_reminder_date: Optional[date] = None,
-                 created_at: datetime = datetime.utcnow(),
-                 updated_at: datetime = datetime.utcnow()):
+class Lease(db.Model):
+    __tablename__ = 'leases'
 
-        self.lease_id = lease_id
-        self.property_id = property_id
-        self.landlord_id = landlord_id
-        self.tenant_id = tenant_id
+    lease_id = db.Column(db.Integer, primary_key=True)
+    property_id = db.Column(db.Integer, db.ForeignKey('properties.property_id'), nullable=False, index=True)
+    landlord_id = db.Column(db.Integer, db.ForeignKey('users.user_id'), nullable=False, index=True) # Landlord who owns the lease
+    tenant_id = db.Column(db.Integer, db.ForeignKey('users.user_id'), nullable=True, index=True) # Tenant associated
 
-        self.tenant_national_id = tenant_national_id
-        self.tenant_name_manual = tenant_name_manual
-        self.tenant_phone_number_manual = tenant_phone_number_manual
-        self.tenant_email_manual = tenant_email_manual
+    start_date = db.Column(db.Date, nullable=False)
+    end_date = db.Column(db.Date, nullable=False)
+    rent_amount = db.Column(db.Numeric(10, 2), nullable=False) # Assuming max 9,999,999.99
+    rent_due_day = db.Column(db.Integer, nullable=False) # Day of the month rent is due
+    move_in_date = db.Column(db.Date, nullable=False)
 
-        self.start_date = start_date
-        self.end_date = end_date
-        self.move_in_date = move_in_date
-        self.rent_start_date = rent_start_date if rent_start_date is not None else move_in_date
+    status = db.Column(db.Enum(LeaseStatusType), default=LeaseStatusType.DRAFT, nullable=False)
+    signing_status = db.Column(db.Enum(LeaseSigningStatus), default=LeaseSigningStatus.NOT_STARTED, nullable=False)
 
-        self.rent_amount = rent_amount
-        self.rent_due_day = rent_due_day
-        self.security_deposit = security_deposit
-        self.status = status # Overall lease status
-        self.notes = notes
+    tenant_national_id = db.Column(db.String(30), nullable=True)
+    tenant_name_manual = db.Column(db.String(100), nullable=True) # If tenant not a system user
+    tenant_phone_number_manual = db.Column(db.String(20), nullable=True)
+    tenant_email_manual = db.Column(db.String(120), nullable=True)
 
-        self.lease_document_url = lease_document_url
-        self.lease_document_version = lease_document_version
-        self.lease_document_uploaded_at = lease_document_uploaded_at
-        self.lease_document_uploaded_by_user_id = lease_document_uploaded_by_user_id
+    rent_start_date = db.Column(db.Date, nullable=True) # Could be different from move_in_date
+    security_deposit = db.Column(db.Numeric(10, 2), nullable=True)
+    notes = db.Column(db.Text, nullable=True)
 
-        self.generated_from_template_id = generated_from_template_id
-        self.lease_document_content_final = lease_document_content_final
-        self.signature_requests = signature_requests if signature_requests is not None else []
-        self.signing_status = signing_status # Tracks the e-signature part specifically
-        self.signed_lease_document_id = signed_lease_document_id
-        self.additional_signed_document_ids = additional_signed_document_ids if additional_signed_document_ids is not None else []
+    lease_document_url = db.Column(db.String(512), nullable=True) # URL to unsigned/draft document
+    lease_document_version = db.Column(db.Integer, default=1, nullable=False)
+    lease_document_uploaded_at = db.Column(db.DateTime, nullable=True)
+    lease_document_uploaded_by_user_id = db.Column(db.Integer, db.ForeignKey('users.user_id'), nullable=True) # User who uploaded draft
 
-        self.renewal_notice_reminder_date = renewal_notice_reminder_date
-        self.termination_notice_reminder_date = termination_notice_reminder_date
+    generated_from_template_id = db.Column(db.Integer, nullable=True) # FK to a potential LeaseTemplate model
+    lease_document_content_final = db.Column(db.Text, nullable=True) # Final HTML/text content for e-signature
 
-        self.created_at = created_at
-        self.updated_at = updated_at
+    signature_requests = db.Column(db.JSON, nullable=True) # List of dicts: {signer_role, email, name, status, signed_at, provider_envelope_id}
+
+    signed_lease_document_id = db.Column(db.Integer, nullable=True) # FK to a Document model for the final signed PDF
+    additional_signed_document_ids = db.Column(db.JSON, nullable=True) # List of FKs to Document model
+
+    renewal_notice_reminder_date = db.Column(db.Date, nullable=True)
+    termination_notice_reminder_date = db.Column(db.Date, nullable=True)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # Relationships
+    property = db.relationship('Property', backref=db.backref('leases', lazy='dynamic'))
+    landlord_user = db.relationship('User', foreign_keys=[landlord_id], backref=db.backref('leases_as_landlord', lazy='dynamic'))
+    tenant_user = db.relationship('User', foreign_keys=[tenant_id], backref=db.backref('leases_as_tenant', lazy='dynamic'))
+    uploader_user = db.relationship('User', foreign_keys=[lease_document_uploaded_by_user_id], backref=db.backref('uploaded_lease_documents', lazy='dynamic'))
+
+    # Relationship to FinancialTransactions (e.g., rent payments)
+    # financial_transactions = db.relationship('FinancialTransaction', backref='lease', lazy='dynamic', foreign_keys='FinancialTransaction.lease_id')
+
+
+    def __repr__(self):
+        return f"<Lease {self.lease_id} for Property {self.property_id} (Status: {self.status.value})>"
 
 # Example:
-# lease_active = Lease(..., status=LeaseStatusType.ACTIVE, signing_status=LeaseSigningStatus.FULLY_SIGNED_SYSTEM)
+# This would now be done via db.session.add()
+# lease_active_data = {
+#     "property_id": 1, "landlord_id": 1, "tenant_id": 2,
+#     "start_date": date(2024,1,1), "end_date": date(2024,12,31),
+#     "rent_amount": Decimal("50000.00"), "rent_due_day": 1, "move_in_date": date(2024,1,1),
+#     "status": LeaseStatusType.ACTIVE, "signing_status": LeaseSigningStatus.FULLY_SIGNED_SYSTEM
+# }
+# lease_active = Lease(**lease_active_data)
+# # db.session.add(lease_active)
+# # db.session.commit()
