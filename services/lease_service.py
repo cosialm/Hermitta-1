@@ -88,23 +88,39 @@ class LeaseService:
         """
         Creates a new lease.
         """
+        # Validate presence of essential fields first
+        required_fields = ['property_id', 'landlord_id', 'start_date', 'end_date', 'rent_amount', 'rent_due_day', 'move_in_date']
+        missing_fields = [field for field in required_fields if field not in lease_data or lease_data[field] is None]
+        if missing_fields:
+            raise ValueError(f"Missing required fields for Lease creation: {', '.join(missing_fields)}")
+
         prepared_data = self._prepare_lease_data(lease_data)
 
         # Basic validation for FK existence (DB will also enforce this)
         # These checks can be made more robust or rely on DB constraints for final validation
-        if not User.query.get(prepared_data.get('landlord_id')):
-            raise ValueError(f"Landlord user with ID {prepared_data.get('landlord_id')} not found.")
-        if prepared_data.get('tenant_id') and not User.query.get(prepared_data.get('tenant_id')):
-            raise ValueError(f"Tenant user with ID {prepared_data.get('tenant_id')} not found.")
-        if not Property.query.get(prepared_data.get('property_id')):
-            raise ValueError(f"Property with ID {prepared_data.get('property_id')} not found.")
-        if prepared_data.get('lease_document_uploaded_by_user_id') and \
-           not User.query.get(prepared_data.get('lease_document_uploaded_by_user_id')):
-            raise ValueError(f"Uploader user with ID {prepared_data.get('lease_document_uploaded_by_user_id')} not found.")
+        landlord_id = prepared_data.get('landlord_id')
+        if not User.query.get(landlord_id):
+            raise ValueError(f"Landlord user with ID {landlord_id} not found.")
 
+        tenant_id = prepared_data.get('tenant_id')
+        if tenant_id and not User.query.get(tenant_id): # tenant_id is optional for a lease
+            raise ValueError(f"Tenant user with ID {tenant_id} not found.")
 
-        new_lease = Lease(**prepared_data)
-        db.session.add(new_lease)
+        property_id = prepared_data.get('property_id')
+        if not Property.query.get(property_id):
+            raise ValueError(f"Property with ID {property_id} not found.")
+
+        uploader_id = prepared_data.get('lease_document_uploaded_by_user_id')
+        if uploader_id and not User.query.get(uploader_id):
+            raise ValueError(f"Uploader user with ID {uploader_id} not found.")
+
+        try:
+            new_lease = Lease(**prepared_data)
+            db.session.add(new_lease)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            raise ValueError(f"Error during Lease creation: {e}") # General error wrapping
         db.session.commit()
         return new_lease
 

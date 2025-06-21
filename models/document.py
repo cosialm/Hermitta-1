@@ -27,7 +27,7 @@ class Document(db.Model):
 
     folder_id = db.Column(db.Integer, db.ForeignKey('document_folders.folder_id'), nullable=True, index=True) # FK to DocumentFolder
 
-    tags = db.Column(db.JSON, nullable=True) # List of strings, e.g., ["unit-5a", "tax-2023", "invoice"]
+    tags = db.Column(db.JSON, nullable=True, default=lambda: []) # List of strings, e.g., ["unit-5a", "tax-2023", "invoice"]
 
     expiry_date = db.Column(db.Date, nullable=True, index=True) # For documents like insurance policies
     reminder_date_for_expiry = db.Column(db.Date, nullable=True) # System can notify user before expiry
@@ -45,6 +45,15 @@ class Document(db.Model):
     # document_folder = db.relationship('DocumentFolder', backref=db.backref('documents', lazy='dynamic')) # Ensure DocumentFolder model exists
 
     # Notifications related to this document are backref'd from Notification.document
+
+    def __init__(self, **kwargs):
+        if kwargs.get('tags') is None: # Handles both 'tags' not present or tags=None
+            kwargs['tags'] = []
+        if 'uploaded_at' not in kwargs:
+            kwargs['uploaded_at'] = datetime.utcnow()
+        if 'updated_at' not in kwargs:
+            kwargs['updated_at'] = datetime.utcnow()
+        super().__init__(**kwargs)
 
     def __repr__(self):
         return f"<Document {self.document_id} '{self.document_name}' Type: {self.document_type.value}>"

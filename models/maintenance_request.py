@@ -104,6 +104,30 @@ class MaintenanceRequest(db.Model):
     # Relationship to FinancialTransactions (e.g., repair costs)
     # financial_transactions = db.relationship('FinancialTransaction', backref='maintenance_request', lazy='dynamic', foreign_keys='FinancialTransaction.maintenance_request_id')
 
+    def __init__(self, **kwargs):
+        # Set defaults for non-datetime fields by modifying kwargs before super().__init__
+        if 'priority' not in kwargs:
+            kwargs['priority'] = MaintenancePriority.MEDIUM
+        if 'status' not in kwargs:
+            kwargs['status'] = MaintenanceRequestStatus.SUBMITTED_BY_TENANT
+        if 'priority' not in kwargs: # Ensure priority is in kwargs for super()
+            kwargs['priority'] = MaintenancePriority.MEDIUM
+        if 'status' not in kwargs: # Ensure status is in kwargs for super()
+            kwargs['status'] = MaintenanceRequestStatus.SUBMITTED_BY_TENANT
+        if kwargs.get('initial_photo_urls') is None:
+            kwargs['initial_photo_urls'] = []
+
+        super().__init__(**kwargs)
+
+        # For datetime fields with Column(default=datetime.utcnow),
+        # if they are not set by super() (e.g. not in kwargs), set them here.
+        if getattr(self, 'submitted_at', None) is None:
+             self.submitted_at = datetime.utcnow()
+        if getattr(self, 'created_at', None) is None:
+            self.created_at = datetime.utcnow()
+        if getattr(self, 'updated_at', None) is None:
+            self.updated_at = datetime.utcnow()
+
     def __repr__(self):
         return f"<MaintenanceRequest {self.request_id} for Property {self.property_id} ({self.status.value})>"
 

@@ -140,6 +140,12 @@ class AuditLog(db.Model):
     # Relationships
     user = db.relationship('User', backref=db.backref('performed_audit_logs', lazy='dynamic')) # Changed backref name
 
+    def __init__(self, **kwargs):
+        # Explicitly set default for status if not provided, to ensure it's set before commit
+        if 'status' not in kwargs:
+            kwargs['status'] = AuditActionStatus.SUCCESS
+        super().__init__(**kwargs)
+
     def __repr__(self):
         return f"<AuditLog {self.log_id} - User: {self.user_id}, Event: {self.event_type.value}>"
 

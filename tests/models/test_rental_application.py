@@ -4,8 +4,19 @@ from decimal import Decimal
 from models.rental_application import (
     RentalApplication, RentalApplicationStatus, ApplicationFeeStatus
 )
+from hermitta_app import create_app, db # For app context
 
 class TestRentalApplication(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.app = create_app('test')
+        cls.app_context = cls.app.app_context()
+        cls.app_context.push()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.app_context.pop()
 
     def test_instantiation_with_required_fields(self):
         """Test RentalApplication instantiation with only required fields."""
@@ -56,6 +67,7 @@ class TestRentalApplication(unittest.TestCase):
             application_id=2, property_id=102, full_name="Jane Submitter",
             email="jane.s@example.com", phone_number="0722000111",
             status=RentalApplicationStatus.SUBMITTED
+            # submitted_at is omitted
         )
         self.assertIsInstance(app_submitted_auto_time.submitted_at, datetime)
         self.assertTrue((app_submitted_auto_time.submitted_at - now).total_seconds() < 5)
@@ -70,7 +82,7 @@ class TestRentalApplication(unittest.TestCase):
         )
         self.assertEqual(app_submitted_custom_time.submitted_at, custom_submit_time)
 
-        # Case 3: Status DRAFT, submitted_at is provided (should respect it, though unusual)
+        # Case 3: Status DRAFT, submitted_at is provided (should respect it if __init__ allows)
         app_draft_custom_time = RentalApplication(
             application_id=4, property_id=104, full_name="Drafty McDraftFace",
             email="drafty@example.com", phone_number="0744000333",
@@ -84,6 +96,7 @@ class TestRentalApplication(unittest.TestCase):
             application_id=5, property_id=105, full_name="Still Drafting",
             email="still.drafting@example.com", phone_number="0755000444",
             status=RentalApplicationStatus.DRAFT
+            # submitted_at is omitted
         )
         self.assertIsNone(app_draft_no_time.submitted_at)
 
@@ -133,26 +146,26 @@ class TestRentalApplication(unittest.TestCase):
 
     def test_data_dictionaries_default_to_empty_dict(self):
         """Test that data dictionaries default to empty dicts."""
-        app1 = RentalApplication(1,1,"N1","e1@c.c","p1", application_data=None)
+        app1 = RentalApplication(application_id=1, property_id=1, full_name="N1", email="e1@c.c", phone_number="p1", application_data=None)
         self.assertEqual(app1.application_data, {})
 
-        app2 = RentalApplication(2,1,"N2","e2@c.c","p2", custom_fields_data=None)
+        app2 = RentalApplication(application_id=2, property_id=1, full_name="N2", email="e2@c.c", phone_number="p2", custom_fields_data=None)
         self.assertEqual(app2.custom_fields_data, {})
 
-        app3 = RentalApplication(3,1,"N3","e3@c.c","p3") # Omitted
+        app3 = RentalApplication(application_id=3, property_id=1, full_name="N3", email="e3@c.c", phone_number="p3") # Omitted
         self.assertEqual(app3.application_data, {})
         self.assertEqual(app3.custom_fields_data, {})
 
     def test_enum_and_boolean_types(self):
         """Test enum and boolean field types and defaults."""
-        app = RentalApplication(4,1,"N4","e4@c.c","p4")
+        app = RentalApplication(application_id=4, property_id=1, full_name="N4", email="e4@c.c", phone_number="p4")
         self.assertIsInstance(app.status, RentalApplicationStatus)
         self.assertIsInstance(app.application_fee_paid_status, ApplicationFeeStatus)
         self.assertFalse(app.applicant_consent_data_processing) # Default
         self.assertFalse(app.applicant_consent_background_check) # Default
 
         app_consents_true = RentalApplication(
-            5,1,"N5","e5@c.c","p5",
+            application_id=5, property_id=1, full_name="N5", email="e5@c.c", phone_number="p5",
             applicant_consent_data_processing=True,
             applicant_consent_background_check=True
         )

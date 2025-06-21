@@ -83,6 +83,23 @@ class Lease(db.Model):
     # Relationship to FinancialTransactions (e.g., rent payments)
     # financial_transactions = db.relationship('FinancialTransaction', backref='lease', lazy='dynamic', foreign_keys='FinancialTransaction.lease_id')
 
+    def __init__(self, **kwargs):
+        # Explicitly set defaults if not provided
+        if 'status' not in kwargs:
+            kwargs['status'] = LeaseStatusType.DRAFT
+        if 'signing_status' not in kwargs:
+            kwargs['signing_status'] = LeaseSigningStatus.NOT_STARTED
+        if 'lease_document_version' not in kwargs:
+            kwargs['lease_document_version'] = 1
+        if kwargs.get('signature_requests') is None: # Handles omitted or explicitly None
+            kwargs['signature_requests'] = []
+        if 'rent_start_date' not in kwargs and 'move_in_date' in kwargs:
+            kwargs['rent_start_date'] = kwargs['move_in_date']
+        if 'created_at' not in kwargs:
+            kwargs['created_at'] = datetime.utcnow()
+        if 'updated_at' not in kwargs:
+            kwargs['updated_at'] = datetime.utcnow()
+        super().__init__(**kwargs)
 
     def __repr__(self):
         return f"<Lease {self.lease_id} for Property {self.property_id} (Status: {self.status.value})>"

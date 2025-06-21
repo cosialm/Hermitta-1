@@ -25,6 +25,18 @@ class LandlordBankAccount(db.Model):
     landlord = db.relationship('User', backref=db.backref('bank_accounts', lazy='dynamic'))
     # Payments received to this account are backref'd from Payment.landlord_bank_account
 
+    def __init__(self, **kwargs):
+        # Explicitly set defaults if not provided
+        if 'account_type' not in kwargs:
+            kwargs['account_type'] = BankAccountType.OTHER
+        if 'is_primary' not in kwargs:
+            kwargs['is_primary'] = False
+        if 'created_at' not in kwargs:
+            kwargs['created_at'] = datetime.utcnow()
+        if 'updated_at' not in kwargs:
+            kwargs['updated_at'] = datetime.utcnow()
+        super().__init__(**kwargs)
+
     def __repr__(self):
         return f"<LandlordBankAccount {self.account_id} - {self.bank_name} {self.account_number} (Landlord: {self.landlord_id})>"
 
