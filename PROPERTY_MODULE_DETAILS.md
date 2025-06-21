@@ -16,11 +16,13 @@ This section describes the attributes of the `Property` class.
 | `property_type`       | `PropertyType`                | The type of property (e.g., `APARTMENT_UNIT`, `TOWNHOUSE`).                         | Mandatory          | None                      |
 | `num_bedrooms`        | `int`                         | Number of bedrooms. Use 0 for property types where not applicable (e.g., bedsitters). | Mandatory          | None                      |
 | `num_bathrooms`       | `int`                         | Number of bathrooms.                                                                | Mandatory          | None                      |
-| `unit_number`         | `Optional[str]`               | Specific unit identifier (e.g., "A5", "Shop 3"). Marked as indexed.                 | Optional           | `None`                    |
+| `unit_number`         | `Optional[str]`               | Specific unit identifier (e.g., "A5", "Shop 3"). Consider for legacy or simple cases. Marked as indexed. | Optional           | `None`                    |
+| `unit_name`           | `Optional[str]`               | Descriptive name for the unit (e.g., "Penthouse A", "Ground Floor Shop"). Marked as indexed. | Optional           | `None`                    |
+| `building_name`       | `Optional[str]`               | Name of the building or complex (e.g., "Sunrise Towers", "Westwood Mall"). Marked as indexed. | Optional           | `None`                    |
 | `estate_neighborhood` | `Optional[str]`               | Specific estate or neighborhood (e.g., "Kilimani"). Marked as indexed.              | Optional           | `None`                    |
 | `ward`                | `Optional[str]`               | Administrative ward (e.g., "Parklands/Highridge"). Marked as indexed.               | Optional           | `None`                    |
 | `sub_county`          | `Optional[str]`               | Sub-county (e.g., "Westlands"). Marked as indexed.                                  | Optional           | `None`                    |
-| `address_line_2`      | `Optional[str]`               | Additional address details (e.g., floor, block if not in `unit_number`).            | Optional           | `None`                    |
+| `address_line_2`      | `Optional[str]`               | Additional address details (e.g., floor, if not covered by `unit_name` or `building_name`). | Optional           | `None`                    |
 | `postal_code`         | `Optional[str]`               | Postal code for the address.                                                        | Optional           | `None`                    |
 | `size_sqft`           | `Optional[int]`               | Size of the property in square feet.                                                | Optional           | `None`                    |
 | `amenities`           | `Optional[List[str]]`         | List of text strings for amenities (e.g., `"BOREHOLE_WATER"`, `"GYM"`).             | Optional           | `[]` (empty list)         |
@@ -61,9 +63,11 @@ This enumeration defines the current status of a property.
 
 The property's location is stored using a combination of structured and flexible address fields:
 
-*   **Street/Building:** `address_line_1` (e.g., "Sunshine Apartments, Ngong Road"). This is the primary address line.
-*   **Unit Number:** `unit_number` (e.g., "A5", "Unit 102"). This field is for the specific unit identifier.
-*   **Additional Address Details:** `address_line_2` can store further details like floor number or block.
+*   **Street/Building:** `address_line_1` (e.g., "Ngong Road", "Moi Avenue"). This is the primary street address.
+*   **Building Name:** `building_name` (e.g., "Sunshine Apartments", "Reliable Towers"). Specifies the name of the building complex if applicable.
+*   **Unit Name:** `unit_name` (e.g., "Penthouse B", "Suite 203", "Shop G5"). Describes the specific unit within a building.
+*   **Unit Number:** `unit_number` (e.g., "A5", "10B"). Can be used for legacy data or simple numbering systems, complements `unit_name`.
+*   **Additional Address Details:** `address_line_2` can store further details like floor number if not part of `unit_name`, or specific block details within a larger unnamed complex.
 *   **City:** `city` (e.g., "Nairobi").
 *   **County:** `county` (e.g., "Nairobi County").
 *   **Sub-County:** `sub_county` (e.g., "Westlands").
@@ -74,6 +78,8 @@ The property's location is stored using a combination of structured and flexible
 **Indexed Fields for Location:**
 The following fields are designed to be indexed for efficient searching:
 *   `unit_number`
+*   `unit_name`
+*   `building_name`
 *   `county`
 *   `estate_neighborhood`
 *   `ward`
@@ -104,7 +110,7 @@ This section details how authenticated landlords interact with the property modu
     *   `num_bedrooms` (int)
     *   `num_bathrooms` (int)
 *   **Optional Fields (Phase 1 MVP):**
-    *   `unit_number` (str), `estate_neighborhood` (str), `ward` (str), `sub_county` (str), `address_line_2` (str), `postal_code` (str)
+    *   `unit_number` (str), `unit_name` (str), `building_name` (str), `estate_neighborhood` (str), `ward` (str), `sub_county` (str), `address_line_2` (str), `postal_code` (str)
     *   `size_sqft` (int)
     *   `amenities` (List[str])
     *   `main_photo_url` (str, URL), `photos_urls` (List[str], URLs)

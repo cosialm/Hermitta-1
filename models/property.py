@@ -35,6 +35,8 @@ class Property(db.Model):
     num_bathrooms = db.Column(db.Integer, nullable=False, default=0)
 
     unit_number = db.Column(db.String(50), nullable=True, index=True) # e.g., "A5", "Unit 102", "Shop 3"
+    unit_name = db.Column(db.String(100), nullable=True, index=True) # e.g. "Penthouse A", "Ground Floor Shop"
+    building_name = db.Column(db.String(100), nullable=True, index=True) # e.g. "Sunrise Tower", "Westwood Mall"
     estate_neighborhood = db.Column(db.String(100), nullable=True, index=True)
     ward = db.Column(db.String(100), nullable=True, index=True)
     sub_county = db.Column(db.String(100), nullable=True, index=True)
@@ -69,7 +71,15 @@ class Property(db.Model):
     # Geocoding logic for latitude/longitude would typically be in the service layer.
 
     def __repr__(self):
-        return f"<Property {self.property_id}: {self.address_line_1}, {self.unit_number if self.unit_number else ''} ({self.property_type.value})>"
+        parts = [f"<Property {self.property_id}: {self.address_line_1}"]
+        if self.building_name:
+            parts.append(f"Building: {self.building_name}")
+        if self.unit_name:
+            parts.append(f"Unit Name: {self.unit_name}")
+        if self.unit_number: # Retaining unit_number for backward compatibility or specific use cases
+            parts.append(f"Unit No: {self.unit_number}")
+        parts.append(f"({self.property_type.value})>")
+        return ", ".join(parts)
 
 # Example Usage (Refined Phase 1 with unit_number)
 # This would now be done via db.session.add()
